@@ -11,6 +11,7 @@
 --verb:#42b3c2;--adverb:#d16dfa;--num:#8cc265;--var:#f0c56a;--str:#e05561;
 --mono:"SFMono-Regular",Menlo,Consolas,"DejaVu Sans Mono",monospace;
 --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif;
+--ed-fs:13.5px;--out-fs:13px;
 }
 html[data-theme="midnight"]{--bg:#080b16;--bg2:#0d1220;--panel:#111a2e;--panel2:#16213a;--fg:#dce4f5;--muted:#8394b8;--accent:#5aa9ff;--accent2:#8b5cf6;--border:#22304d;--glow:90,169,255;--verb:#56c9d6;--adverb:#d16dfa;--num:#a5e075;--var:#f0c56a;--str:#ff616e;}
 html[data-theme="matrix"]{--bg:#020602;--bg2:#061006;--panel:#0a1a0a;--panel2:#0e230e;--fg:#c8f7c8;--muted:#5fa15f;--accent:#39ff14;--accent2:#00b34a;--border:#123d12;--glow:57,255,20;--verb:#39ff14;--adverb:#8cf5c2;--num:#c8f7c8;--var:#eaffea;--str:#7dffb0;}
@@ -20,18 +21,17 @@ html[data-theme="mono"]{--bg:#0e0e10;--bg2:#151518;--panel:#1b1b1f;--panel2:#212
 *{box-sizing:border-box}
 html,body{margin:0;height:100%}
 body{background:var(--bg);color:var(--fg);font-family:var(--sans);display:flex;flex-direction:column;height:100vh;overflow:hidden}
-header{display:flex;align-items:center;gap:10px;padding:9px 14px;background:var(--bg2);border-bottom:1px solid var(--border);flex:none;flex-wrap:wrap}
-.brand{font-family:var(--mono);font-weight:700;color:var(--fg);white-space:nowrap}
+header{display:flex;align-items:center;gap:8px;padding:8px 14px;background:var(--bg2);border-bottom:1px solid var(--border);flex:none;flex-wrap:wrap}
+.brand{font-family:var(--mono);font-weight:700;color:var(--fg);white-space:nowrap;font-size:13.5px}
 .brand b{color:var(--accent)}
-header a.home{color:var(--muted);font-size:13px;white-space:nowrap}
+header a.home{color:var(--muted);font-size:12px;white-space:nowrap;text-decoration:none}
+header a.home:hover{color:var(--accent)}
 .spacer{flex:1}
-select,button{font-family:var(--sans);font-size:12.5px;color:var(--fg);background:var(--panel);
-border:1px solid var(--border);border-radius:8px;padding:6px 10px;cursor:pointer;transition:border-color .12s,background .12s}
+select,button{font-family:var(--sans);font-size:12px;color:var(--fg);background:var(--panel);
+border:1px solid var(--border);border-radius:7px;padding:5px 9px;cursor:pointer;transition:border-color .12s,background .12s}
 select:hover,button:hover{border-color:var(--accent)}
 button.accent{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#111;border:0;font-weight:700}
-.themes{display:flex;gap:5px}
-.sw{width:16px;height:16px;border-radius:50%;border:2px solid var(--border);cursor:pointer;padding:0}
-.sw.active{border-color:var(--fg)}
+button.zoom{padding:3px 8px;font-size:11px;border-radius:5px;line-height:1.4}
 kbd{font-family:var(--mono);font-size:10.5px;background:var(--panel2);border:1px solid var(--border);
 border-radius:4px;padding:1px 5px;color:var(--muted)}
 
@@ -42,9 +42,10 @@ border-radius:4px;padding:1px 5px;color:var(--muted)}
 #editorPane{flex:1 1 50%;border-right:1px solid var(--border)}
 #split.vertical #editorPane{border-right:0;border-bottom:1px solid var(--border);flex:1 1 45%}
 #outputPane{flex:1 1 50%}
-.paneHead{display:flex;align-items:center;gap:8px;padding:7px 12px;background:var(--bg2);
-border-bottom:1px solid var(--border);flex:none;font-size:12px;color:var(--muted)}
-.paneHead .title{font-family:var(--mono);font-weight:700;color:var(--fg)}
+.paneHead{display:flex;align-items:center;gap:6px;padding:6px 10px;background:var(--bg2);
+border-bottom:1px solid var(--border);flex:none;font-size:11.5px;color:var(--muted)}
+.paneHead .title{font-family:var(--mono);font-weight:700;color:var(--fg);font-size:12px}
+.zoomGroup{display:flex;align-items:center;gap:3px}
 .resizer{width:5px;cursor:col-resize;background:transparent;flex:none}
 .resizer:hover,.resizer.active{background:var(--accent)}
 #split.vertical .resizer{width:auto;height:5px;cursor:row-resize}
@@ -52,7 +53,7 @@ border-bottom:1px solid var(--border);flex:none;font-size:12px;color:var(--muted
 /* ---- editor ---- */
 #editorWrap{flex:1;position:relative;overflow:auto;background:var(--panel)}
 #editorHighlight,#editorInput{
-margin:0;padding:14px 16px;font-family:var(--mono);font-size:13.5px;line-height:1.55;
+margin:0;padding:14px 16px;font-family:var(--mono);font-size:var(--ed-fs);line-height:1.55;
 white-space:pre-wrap;word-break:break-word;tab-size:2;}
 #editorHighlight{position:absolute;inset:0;pointer-events:none;color:var(--fg)}
 #editorInput{position:relative;width:100%;min-height:100%;background:transparent;color:transparent;
@@ -64,25 +65,21 @@ caret-color:var(--fg);border:0;outline:0;resize:none;-webkit-text-fill-color:tra
 .tok-str{color:var(--str)}
 .tok-sym{color:var(--accent2)}
 .tok-com{color:var(--muted);font-style:italic}
-.runbar{display:flex;align-items:center;gap:10px;padding:8px 12px;border-top:1px solid var(--border);
+.runbar{display:flex;align-items:center;gap:10px;padding:7px 10px;border-top:1px solid var(--border);
 background:var(--bg2);flex:none}
-.runbar .hint{font-size:11.5px;color:var(--muted)}
+.runbar .hint{font-size:11px;color:var(--muted)}
 
 /* ---- output tabs ---- */
 .tabs{display:flex;gap:2px;padding:6px 8px 0;background:var(--bg2);border-bottom:1px solid var(--border);flex:none}
-.tab{padding:7px 13px;font-size:12.5px;color:var(--muted);cursor:pointer;border:1px solid transparent;
+.tab{padding:6px 12px;font-size:12px;color:var(--muted);cursor:pointer;border:1px solid transparent;
 border-bottom:0;border-radius:8px 8px 0 0;font-family:var(--mono)}
 .tab:hover{color:var(--fg)}
 .tab.active{color:var(--fg);background:var(--panel);border-color:var(--border)}
 .tabpanels{flex:1;min-height:0;position:relative;background:var(--panel)}
 .tabpanel{position:absolute;inset:0;overflow:auto;padding:14px 16px;font-family:var(--mono);
-font-size:13px;line-height:1.5;white-space:pre-wrap;word-break:break-word;display:none}
+font-size:var(--out-fs);line-height:1.5;white-space:pre-wrap;word-break:break-word;display:none}
 .tabpanel.active{display:block}
 .tabpanel .empty{color:var(--muted);font-style:italic}
-.resTable{border-collapse:collapse;font-size:12.5px;width:max-content}
-.resTable th,.resTable td{border:1px solid var(--border);padding:4px 10px;text-align:left;white-space:nowrap}
-.resTable th{background:var(--panel2);color:var(--accent);font-weight:700}
-.resTable tr:nth-child(even) td{background:rgba(var(--glow),.04)}
 .err{color:var(--str)}
 
 /* ---- responsive: stack panes on narrow screens ---- */
@@ -90,7 +87,7 @@ font-size:13px;line-height:1.5;white-space:pre-wrap;word-break:break-word;displa
 #split{flex-direction:column}
 #editorPane{border-right:0;border-bottom:1px solid var(--border);flex:1 1 45%}
 .resizer{width:auto !important;height:5px;cursor:row-resize}
-header{gap:6px}
+header{gap:5px}
 header .hideSm{display:none}
 }
 </style>
@@ -102,37 +99,47 @@ header .hideSm{display:none}
 <div class="spacer"></div>
 <select id="snippets"><option value="">Snippets…</option></select>
 <select id="examples"><option value="">Examples…</option></select>
-<button id="reset" class="hideSm">Reset session</button>
-<button id="runBtn" class="accent">Run ▸</button>
-<div class="themes" id="themes"></div>
+<button id="reset" class="hideSm" title="Reset session (fresh memory)">Reset</button>
+<select id="themeSel" title="Theme"></select>
 </header>
 <div id="split">
   <section class="pane" id="editorPane">
-    <div class="paneHead"><span class="title">Editor</span><span class="spacer" style="flex:1"></span>
-      <span id="engineStatus">booting…</span></div>
+    <div class="paneHead">
+      <span class="title">Editor</span>
+      <div class="zoomGroup" title="Editor zoom">
+        <button class="zoom" id="edZoomOut">A−</button>
+        <button class="zoom" id="edZoomIn">A+</button>
+      </div>
+      <span class="spacer" style="flex:1"></span>
+      <span id="engineStatus">booting…</span>
+    </div>
     <div id="editorWrap">
       <pre id="editorHighlight" aria-hidden="true"></pre>
       <textarea id="editorInput" spellcheck="false" autocapitalize="off" autocomplete="off"
         placeholder="2+3*4&#10;t:([]sym:`AAPL`MSFT;px:191.2 402.5)&#10;select avg px by sym from t"></textarea>
     </div>
     <div class="runbar">
-      <button id="runBtn2" class="accent">Run ▸</button>
-      <span class="hint"><kbd>Shift+Enter</kbd> or <kbd>Ctrl+Enter</kbd> to run · <kbd>Ctrl+L</kbd> clears result</span>
+      <button id="runBtn" class="accent">Run ▸</button>
+      <span class="hint"><kbd>Shift+Enter</kbd> to run · <kbd>Ctrl+L</kbd> clears</span>
     </div>
   </section>
   <div class="resizer" id="resizer"></div>
   <section class="pane" id="outputPane">
     <div class="tabs" id="tabs">
-      <div class="tab active" data-tab="result">Execution Result</div>
-      <div class="tab" data-tab="ast">AST Inspector</div>
-      <div class="tab" data-tab="disasm">Bytecode Disassembler</div>
-      <div class="tab" data-tab="table">Table / CSV Viewer</div>
+      <div class="tab active" data-tab="result">Result</div>
+      <div class="tab" data-tab="ast">AST</div>
+      <div class="tab" data-tab="disasm">Bytecode</div>
+    </div>
+    <div class="paneHead" style="border-bottom:0;border-top:1px solid var(--border);justify-content:flex-end">
+      <div class="zoomGroup" title="Output zoom">
+        <button class="zoom" id="outZoomOut">A−</button>
+        <button class="zoom" id="outZoomIn">A+</button>
+      </div>
     </div>
     <div class="tabpanels">
-      <div class="tabpanel active" id="panel-result"><div class="empty">Run something to see output here.</div></div>
+      <div class="tabpanel active" id="panel-result"><div class="empty">Run something to see output here. Tables render automatically.</div></div>
       <div class="tabpanel" id="panel-ast"><div class="empty">Run to see the parsed AST for your code (\ast).</div></div>
       <div class="tabpanel" id="panel-disasm"><div class="empty">Run to see the compiled bytecode for your code (\disasm).</div></div>
-      <div class="tabpanel" id="panel-table"><div class="empty">Run a table-producing expression to see it rendered as a grid.</div></div>
     </div>
   </section>
 </div>
@@ -141,18 +148,32 @@ header .hideSm{display:none}
 <script>
 // ================= theme =================
 const THEMES=[["amber","#ffb000"],["midnight","#5aa9ff"],["matrix","#39ff14"],["paper","#d97706"],["synthwave","#ff2fb9"],["mono","#e6e6e6"]];
-const tbox=document.getElementById("themes");
+const themeSel=document.getElementById("themeSel");
+THEMES.forEach(([t])=>{const o=document.createElement("option");o.value=t;o.textContent=t[0].toUpperCase()+t.slice(1);themeSel.appendChild(o);});
 function setTheme(t){document.documentElement.setAttribute("data-theme",t);
   try{localStorage.setItem("amber-theme",t)}catch(e){}
-  tbox.querySelectorAll(".sw").forEach(s=>s.classList.toggle("active",s.dataset.t===t));}
-THEMES.forEach(([t,c])=>{const b=document.createElement("button");b.className="sw";b.dataset.t=t;b.style.background=c;b.title=t;b.onclick=()=>setTheme(t);tbox.appendChild(b);});
+  themeSel.value=t;}
+themeSel.addEventListener("change",()=>setTheme(themeSel.value));
 let savedTheme="amber";try{savedTheme=localStorage.getItem("amber-theme")||"amber"}catch(e){}
 setTheme(savedTheme);
+
+// ================= zoom (independent per pane) =================
+const root = document.documentElement;
+function clamp(v,lo,hi){return Math.min(hi,Math.max(lo,v));}
+function setEdFs(px){ px=clamp(px,10,24); root.style.setProperty("--ed-fs", px+"px"); try{localStorage.setItem("amber-ed-fs",px)}catch(e){} }
+function setOutFs(px){ px=clamp(px,10,24); root.style.setProperty("--out-fs", px+"px"); try{localStorage.setItem("amber-out-fs",px)}catch(e){} }
+let edFs=13.5, outFs=13;
+try{ edFs = parseFloat(localStorage.getItem("amber-ed-fs")) || edFs; }catch(e){}
+try{ outFs = parseFloat(localStorage.getItem("amber-out-fs")) || outFs; }catch(e){}
+setEdFs(edFs); setOutFs(outFs);
+document.getElementById("edZoomIn").addEventListener("click",()=>{edFs+=1;setEdFs(edFs);});
+document.getElementById("edZoomOut").addEventListener("click",()=>{edFs-=1;setEdFs(edFs);});
+document.getElementById("outZoomIn").addEventListener("click",()=>{outFs+=1;setOutFs(outFs);});
+document.getElementById("outZoomOut").addEventListener("click",()=>{outFs-=1;setOutFs(outFs);});
 
 // ================= syntax highlighting (lightweight, editor-side) =================
 // Amber verbs (monadic/dyadic glyphs) & adverbs, per the language's own vocabulary.
 const VERBS = ["+","-","*","%","!","&","|","<",">","=","~","#","_","$",",","^","@",".",":","?"];
-const ADVERBS = ["'","/","\\\\","':","/:","\\\\:"];
 function escHtml(s){return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
 function highlightK(src){
   // token order matters: comments/strings first (consume greedily), then symbols,
@@ -299,37 +320,12 @@ async function bootVM(){
   setPanel("result", '<span style="color:var(--muted)">Amber engine ready — real C interpreter compiled to WASM. Press Run or Shift+Enter.</span>');
 }
 
-// naive table-shape detector for the Table/CSV viewer: turns Amber's own
-// flip-table print format `+`col1`col2!(vals1;vals2)` rendering, OR a raw
-// eval output that already looks column-aligned, into an HTML <table>.
-function tryRenderTable(raw){
-  if (!raw) return null;
-  const lines = raw.replace(/\x1b\[[0-9;]*m/g,"").split("\n").filter(l=>l.length);
-  if (lines.length < 2) return null;
-  // Amber's boxed/columnar table print usually has a header line followed by
-  // rows whose whitespace-separated column counts match the header's.
-  const headerCols = lines[0].trim().split(/\s{1,}/);
-  if (headerCols.length < 2) return null;
-  const rows = [];
-  for (let i = 1; i < lines.length; i++) {
-    const cols = lines[i].trim().split(/\s{2,}|\s(?=[\d`"-])/).filter(x=>x.length);
-    if (cols.length) rows.push(cols);
-  }
-  if (!rows.length) return null;
-  let html = '<table class="resTable"><thead><tr>';
-  headerCols.forEach(h => html += "<th>" + escHtml(h) + "</th>");
-  html += "</tr></thead><tbody>";
-  rows.forEach(r => { html += "<tr>"; r.forEach(c => html += "<td>" + escHtml(c) + "</td>"); html += "</tr>"; });
-  html += "</tbody></table>";
-  return html;
-}
-
 function runCode(){
   if (!vm || !vm.ready || busy) return;
   const code = edInput.value;
   if (!code.trim().length) return;
   busy = true; engineStatus.textContent = "running…";
-  // ---- Execution Result ----
+  // ---- Execution Result (tables render automatically, engine-side) ----
   let resHtml = "";
   code.split(/\n/).forEach(line => {
     if (!line.trim().length) return;
@@ -338,27 +334,21 @@ function runCode(){
     if (r) resHtml += ansiToHtml(r.replace(/\n$/,"")) + "\n";
   });
   setPanel("result", resHtml);
+  const lastLine = code.trim().split("\n").filter(l=>l.trim().length).pop();
   // ---- AST Inspector ----
   try {
-    const astOut = vm.eval("\\ast " + code.trim().split("\n").filter(l=>l.trim().length).pop());
+    const astOut = vm.eval("\\ast " + lastLine);
     setPanel("ast", ansiToHtml(astOut));
   } catch(e) { setPanel("ast", '<span class="err">' + escHtml(String(e)) + "</span>"); }
   // ---- Bytecode Disassembler ----
   try {
-    const lastLine = code.trim().split("\n").filter(l=>l.trim().length).pop();
     const disOut = vm.eval("\\disasm " + lastLine);
     setPanel("disasm", ansiToHtml(disOut));
   } catch(e) { setPanel("disasm", '<span class="err">' + escHtml(String(e)) + "</span>"); }
-  // ---- Table / CSV Viewer ----
-  const lastLine = code.trim().split("\n").filter(l=>l.trim().length).pop();
-  const tableOut = vm.eval(lastLine);
-  const tbl = tryRenderTable(tableOut);
-  setPanel("table", tbl || ('<div class="empty">Last line\'s result doesn\'t look like a table.<br><br>Raw output:</div>' + ansiToHtml(tableOut)));
   engineStatus.textContent = "ready";
   busy = false;
 }
 document.getElementById("runBtn").addEventListener("click", runCode);
-document.getElementById("runBtn2").addEventListener("click", runCode);
 edInput.addEventListener("keydown", e => {
   if ((e.key === "Enter" && e.shiftKey) || (e.key === "Enter" && (e.ctrlKey || e.metaKey))) {
     e.preventDefault(); runCode();
@@ -374,14 +364,16 @@ edInput.addEventListener("keydown", e => {
 });
 
 // ================= examples =================
+// Clicking an example loads its actual source into the editor (left side) so
+// you can see what's really in it, rather than immediately running it and
+// only showing output. Run it yourself with Run / Shift+Enter.
 const exSel = document.getElementById("examples");
 AMBER_EXAMPLES.forEach(([f,d]) => { const o=document.createElement("option"); o.value=f; o.textContent=f+" — "+d; exSel.appendChild(o); });
 exSel.addEventListener("change", () => {
   const f = exSel.value; exSel.selectedIndex = 0; if (!f || !vm) return;
-  const r = vm.load(f);
-  setPanel("result", '<div style="color:var(--muted)">/ ── loaded ' + f + ' ──</div>' + ansiToHtml(r));
-  tabs.forEach(x=>x.classList.remove("active")); document.querySelectorAll(".tabpanel").forEach(p=>p.classList.remove("active"));
-  document.querySelector('[data-tab="result"]').classList.add("active"); document.getElementById("panel-result").classList.add("active");
+  const src = vm.readFile(f);
+  edInput.value = src; refreshHighlight(); edInput.focus();
+  setPanel("result", '<div style="color:var(--muted)">/ ── loaded ' + f + ' into the editor — press Run to execute ──</div>');
 });
 document.getElementById("reset").addEventListener("click", async () => {
   setPanel("result", '<span style="color:var(--muted)">… resetting session (fresh memory)…</span>');

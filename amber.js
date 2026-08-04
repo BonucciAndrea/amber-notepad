@@ -136,6 +136,16 @@ class AmberVM {
     try { this.ex.amber_load(); } catch (e) { return "\x1b[31mruntime error: " + e.message + "\x1b[0m\n"; }
     return this._out.join("");
   }
+
+  // read an embedded file's raw source text WITHOUT running it (so the IDE
+  // can show what an example actually contains before/instead of running it)
+  readFile(name) {
+    this._writeIn(name);
+    const p = this.ex.amber_read();
+    const u = this._u8();
+    let end = p; while (u[end] !== 0) end++;
+    return this._dec.decode(u.slice(p, end));
+  }
 }
 
 global.AmberVM = AmberVM;

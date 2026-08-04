@@ -16,18 +16,19 @@ with live syntax highlighting on the left (cyan verbs, magenta adverbs, green
 numbers, yellow variables, red strings), and a tabbed output panel on the
 right:
 
-- **Execution Result** — your code's output, ANSI colours rendered live.
-- **AST Inspector** — the parsed syntax tree for the last statement (`\ast`).
-- **Bytecode Disassembler** — the compiled VM bytecode for the last statement
-  (`\disasm`).
-- **Table / CSV Viewer** — the last statement's result rendered as an HTML
-  grid when it looks like a table.
+- **Result** — your code's output, ANSI colours rendered live. Tables
+  (`` `m ``/`` `M `` results) render automatically as a box-drawn grid —
+  no `show` or special call needed.
+- **AST** — the parsed syntax tree for the last statement (`\ast`).
+- **Bytecode** — the compiled VM bytecode for the last statement (`\disasm`).
 
-Press **Run**, or **Shift+Enter** / **Ctrl+Enter**, to evaluate the editor's
-contents. Use **Snippets…** for ready-made examples (HFT/tick analytics,
-SIMD vector math, tacit/point-free functions, CSV ingestion), or
-**Examples…** to load any of the twelve bundled programs. **Reset session**
-starts fresh. The layout stacks vertically on narrow screens, and the pane
+Press **Run**, or **Shift+Enter**, to evaluate the editor's contents. Use
+**Snippets…** for ready-made examples (HFT/tick analytics, SIMD vector math,
+tacit/point-free functions, CSV ingestion), or **Examples…** to load any of
+the twelve bundled programs' actual source into the editor (it loads the
+code, not its output, so you can see exactly what's in it — run it yourself
+when ready). **Reset** starts a fresh session. Each pane has its own **A−/A+**
+zoom controls. The layout stacks vertically on narrow screens, and the pane
 divider is draggable.
 
 ## Files
