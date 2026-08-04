@@ -3,139 +3,392 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Amber · REPL</title>
+<title>Amber · IDE</title>
 <style>
-  :root{
-    --bg:#0a0705;--bg2:#140f0a;--panel:#1b130c;--fg:#f5e6d0;--muted:#b79b78;
-    --accent:#ffb000;--accent2:#ff7a18;--border:#3a2a18;--glow:255,176,0;
-    --mono:"SFMono-Regular",Menlo,Consolas,"DejaVu Sans Mono",monospace;
-    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif;
-  }
-  html[data-theme="midnight"]{--bg:#080b16;--bg2:#0d1220;--panel:#111a2e;--fg:#dce4f5;--muted:#8394b8;--accent:#5aa9ff;--accent2:#8b5cf6;--border:#22304d;--glow:90,169,255;}
-  html[data-theme="matrix"]{--bg:#020602;--bg2:#061006;--panel:#0a1a0a;--fg:#c8f7c8;--muted:#5fa15f;--accent:#39ff14;--accent2:#00b34a;--border:#123d12;--glow:57,255,20;}
-  html[data-theme="paper"]{--bg:#f4efe4;--bg2:#ece5d5;--panel:#fbf8f1;--fg:#2a2420;--muted:#7a6f5f;--accent:#b5540a;--accent2:#d97706;--border:#d8ccb6;--glow:181,84,10;}
-  html[data-theme="synthwave"]{--bg:#150826;--bg2:#1e0d38;--panel:#271046;--fg:#f0d6ff;--muted:#b189d6;--accent:#ff2fb9;--accent2:#22d3ee;--border:#3d1c66;--glow:255,47,185;}
-  html[data-theme="mono"]{--bg:#0e0e10;--bg2:#151518;--panel:#1b1b1f;--fg:#e8e8ea;--muted:#9a9aa2;--accent:#eaeaea;--accent2:#9a9aa2;--border:#2c2c33;--glow:220,220,220;}
+:root{
+--bg:#0a0705;--bg2:#140f0a;--panel:#1b130c;--panel2:#231909;--fg:#f5e6d0;--muted:#b79b78;
+--accent:#ffb000;--accent2:#ff7a18;--border:#3a2a18;--glow:255,176,0;
+--verb:#42b3c2;--adverb:#d16dfa;--num:#8cc265;--var:#f0c56a;--str:#e05561;
+--mono:"SFMono-Regular",Menlo,Consolas,"DejaVu Sans Mono",monospace;
+--sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif;
+}
+html[data-theme="midnight"]{--bg:#080b16;--bg2:#0d1220;--panel:#111a2e;--panel2:#16213a;--fg:#dce4f5;--muted:#8394b8;--accent:#5aa9ff;--accent2:#8b5cf6;--border:#22304d;--glow:90,169,255;--verb:#56c9d6;--adverb:#d16dfa;--num:#a5e075;--var:#f0c56a;--str:#ff616e;}
+html[data-theme="matrix"]{--bg:#020602;--bg2:#061006;--panel:#0a1a0a;--panel2:#0e230e;--fg:#c8f7c8;--muted:#5fa15f;--accent:#39ff14;--accent2:#00b34a;--border:#123d12;--glow:57,255,20;--verb:#39ff14;--adverb:#8cf5c2;--num:#c8f7c8;--var:#eaffea;--str:#7dffb0;}
+html[data-theme="paper"]{--bg:#f4efe4;--bg2:#ece5d5;--panel:#fbf8f1;--panel2:#f2ead8;--fg:#2a2420;--muted:#7a6f5f;--accent:#b5540a;--accent2:#d97706;--border:#d8ccb6;--glow:181,84,10;--verb:#0f7c8c;--adverb:#9333ea;--num:#15803d;--var:#a16207;--str:#b91c1c;}
+html[data-theme="synthwave"]{--bg:#150826;--bg2:#1e0d38;--panel:#271046;--panel2:#301454;--fg:#f0d6ff;--muted:#b189d6;--accent:#ff2fb9;--accent2:#22d3ee;--border:#3d1c66;--glow:255,47,185;--verb:#22d3ee;--adverb:#ff2fb9;--num:#a5e075;--var:#fcd34d;--str:#ff6b9d;}
+html[data-theme="mono"]{--bg:#0e0e10;--bg2:#151518;--panel:#1b1b1f;--panel2:#212126;--fg:#e8e8ea;--muted:#9a9aa2;--accent:#eaeaea;--accent2:#9a9aa2;--border:#2c2c33;--glow:220,220,220;--verb:#eaeaea;--adverb:#c8c8ce;--num:#a8a8b0;--var:#dcdce0;--str:#8a8a92;}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--sans);display:flex;flex-direction:column;height:100vh;overflow:hidden}
+header{display:flex;align-items:center;gap:10px;padding:9px 14px;background:var(--bg2);border-bottom:1px solid var(--border);flex:none;flex-wrap:wrap}
+.brand{font-family:var(--mono);font-weight:700;color:var(--fg);white-space:nowrap}
+.brand b{color:var(--accent)}
+header a.home{color:var(--muted);font-size:13px;white-space:nowrap}
+.spacer{flex:1}
+select,button{font-family:var(--sans);font-size:12.5px;color:var(--fg);background:var(--panel);
+border:1px solid var(--border);border-radius:8px;padding:6px 10px;cursor:pointer;transition:border-color .12s,background .12s}
+select:hover,button:hover{border-color:var(--accent)}
+button.accent{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#111;border:0;font-weight:700}
+.themes{display:flex;gap:5px}
+.sw{width:16px;height:16px;border-radius:50%;border:2px solid var(--border);cursor:pointer;padding:0}
+.sw.active{border-color:var(--fg)}
+kbd{font-family:var(--mono);font-size:10.5px;background:var(--panel2);border:1px solid var(--border);
+border-radius:4px;padding:1px 5px;color:var(--muted)}
 
-  *{box-sizing:border-box}
-  html,body{margin:0;height:100%}
-  body{background:var(--bg);color:var(--fg);font-family:var(--sans);display:flex;flex-direction:column;height:100vh;overflow:hidden}
-  header{display:flex;align-items:center;gap:14px;padding:10px 16px;background:var(--bg2);border-bottom:1px solid var(--border);flex:none}
-  .brand{font-family:var(--mono);font-weight:700;color:var(--fg)}
-  .brand b{color:var(--accent)}
-  header a.home{color:var(--muted);font-size:13px}
-  .spacer{flex:1}
-  select,button{font-family:var(--sans);font-size:13px;color:var(--fg);background:var(--panel);
-    border:1px solid var(--border);border-radius:8px;padding:7px 11px;cursor:pointer;transition:border-color .12s,background .12s}
-  select:hover,button:hover{border-color:var(--accent)}
-  button.accent{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#111;border:0;font-weight:600}
-  .themes{display:flex;gap:6px}
-  .sw{width:18px;height:18px;border-radius:50%;border:2px solid var(--border);cursor:pointer;padding:0}
-  .sw.active{border-color:var(--fg)}
+/* ---- split-pane layout ---- */
+#split{flex:1;display:flex;min-height:0;min-width:0}
+#split.vertical{flex-direction:column}
+.pane{display:flex;flex-direction:column;min-height:0;min-width:0}
+#editorPane{flex:1 1 50%;border-right:1px solid var(--border)}
+#split.vertical #editorPane{border-right:0;border-bottom:1px solid var(--border);flex:1 1 45%}
+#outputPane{flex:1 1 50%}
+.paneHead{display:flex;align-items:center;gap:8px;padding:7px 12px;background:var(--bg2);
+border-bottom:1px solid var(--border);flex:none;font-size:12px;color:var(--muted)}
+.paneHead .title{font-family:var(--mono);font-weight:700;color:var(--fg)}
+.resizer{width:5px;cursor:col-resize;background:transparent;flex:none}
+.resizer:hover,.resizer.active{background:var(--accent)}
+#split.vertical .resizer{width:auto;height:5px;cursor:row-resize}
 
-  #term{flex:1;overflow-y:auto;padding:16px 18px;font-family:var(--mono);font-size:13.5px;line-height:1.34;
-    cursor:text;background:
-      radial-gradient(900px 500px at 90% -10%, rgba(var(--glow),.05), transparent 60%);}
-  #log{white-space:pre-wrap;word-break:break-word}
-  .prompt{color:var(--accent);font-weight:600}
-  .userline{color:var(--fg)}
-  .sys{color:var(--muted)}
-  .inputrow{display:flex;align-items:baseline}
-  .inputrow .prompt{flex:none;margin-right:2px}
-  #in{flex:1;background:transparent;border:0;outline:0;color:var(--fg);font-family:var(--mono);
-    font-size:13.5px;line-height:1.34;caret-color:var(--accent)}
-  #boot{color:var(--muted);padding:4px 0}
-  ::selection{background:rgba(var(--glow),.3)}
-  /* scrollbar */
-  #term::-webkit-scrollbar{width:10px}
-  #term::-webkit-scrollbar-thumb{background:var(--border);border-radius:6px}
+/* ---- editor ---- */
+#editorWrap{flex:1;position:relative;overflow:auto;background:var(--panel)}
+#editorHighlight,#editorInput{
+margin:0;padding:14px 16px;font-family:var(--mono);font-size:13.5px;line-height:1.55;
+white-space:pre-wrap;word-break:break-word;tab-size:2;}
+#editorHighlight{position:absolute;inset:0;pointer-events:none;color:var(--fg)}
+#editorInput{position:relative;width:100%;min-height:100%;background:transparent;color:transparent;
+caret-color:var(--fg);border:0;outline:0;resize:none;-webkit-text-fill-color:transparent}
+.tok-verb{color:var(--verb);font-weight:600}
+.tok-adverb{color:var(--adverb);font-weight:600}
+.tok-num{color:var(--num)}
+.tok-var{color:var(--var)}
+.tok-str{color:var(--str)}
+.tok-sym{color:var(--accent2)}
+.tok-com{color:var(--muted);font-style:italic}
+.runbar{display:flex;align-items:center;gap:10px;padding:8px 12px;border-top:1px solid var(--border);
+background:var(--bg2);flex:none}
+.runbar .hint{font-size:11.5px;color:var(--muted)}
+
+/* ---- output tabs ---- */
+.tabs{display:flex;gap:2px;padding:6px 8px 0;background:var(--bg2);border-bottom:1px solid var(--border);flex:none}
+.tab{padding:7px 13px;font-size:12.5px;color:var(--muted);cursor:pointer;border:1px solid transparent;
+border-bottom:0;border-radius:8px 8px 0 0;font-family:var(--mono)}
+.tab:hover{color:var(--fg)}
+.tab.active{color:var(--fg);background:var(--panel);border-color:var(--border)}
+.tabpanels{flex:1;min-height:0;position:relative;background:var(--panel)}
+.tabpanel{position:absolute;inset:0;overflow:auto;padding:14px 16px;font-family:var(--mono);
+font-size:13px;line-height:1.5;white-space:pre-wrap;word-break:break-word;display:none}
+.tabpanel.active{display:block}
+.tabpanel .empty{color:var(--muted);font-style:italic}
+.resTable{border-collapse:collapse;font-size:12.5px;width:max-content}
+.resTable th,.resTable td{border:1px solid var(--border);padding:4px 10px;text-align:left;white-space:nowrap}
+.resTable th{background:var(--panel2);color:var(--accent);font-weight:700}
+.resTable tr:nth-child(even) td{background:rgba(var(--glow),.04)}
+.err{color:var(--str)}
+
+/* ---- responsive: stack panes on narrow screens ---- */
+@media (max-width:820px){
+#split{flex-direction:column}
+#editorPane{border-right:0;border-bottom:1px solid var(--border);flex:1 1 45%}
+.resizer{width:auto !important;height:5px;cursor:row-resize}
+header{gap:6px}
+header .hideSm{display:none}
+}
 </style>
 </head>
 <body>
 <header>
-  <div class="brand"><b>◆</b> amber <span class="sys" style="font-weight:400">· repl</span></div>
-  <a class="home" href="index.html">← home</a>
-  <div class="spacer"></div>
-  <select id="examples"><option value="">Load example…</option></select>
-  <button id="clear">Clear</button>
-  <button id="reset">Reset session</button>
-  <div class="themes" id="themes"></div>
+<div class="brand"><b>◆</b> amber <span style="font-weight:400;color:var(--muted)">· ide</span></div>
+<a class="home" href="index.html">← home</a>
+<div class="spacer"></div>
+<select id="snippets"><option value="">Snippets…</option></select>
+<select id="examples"><option value="">Examples…</option></select>
+<button id="reset" class="hideSm">Reset session</button>
+<button id="runBtn" class="accent">Run ▸</button>
+<div class="themes" id="themes"></div>
 </header>
-
-<div id="term"><div id="boot">booting the Amber engine…</div><div id="log"></div>
-  <div class="inputrow" id="row" style="display:none"><span class="prompt">amber&gt;&nbsp;</span><input id="in" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
+<div id="split">
+  <section class="pane" id="editorPane">
+    <div class="paneHead"><span class="title">Editor</span><span class="spacer" style="flex:1"></span>
+      <span id="engineStatus">booting…</span></div>
+    <div id="editorWrap">
+      <pre id="editorHighlight" aria-hidden="true"></pre>
+      <textarea id="editorInput" spellcheck="false" autocapitalize="off" autocomplete="off"
+        placeholder="2+3*4&#10;t:([]sym:`AAPL`MSFT;px:191.2 402.5)&#10;select avg px by sym from t"></textarea>
+    </div>
+    <div class="runbar">
+      <button id="runBtn2" class="accent">Run ▸</button>
+      <span class="hint"><kbd>Shift+Enter</kbd> or <kbd>Ctrl+Enter</kbd> to run · <kbd>Ctrl+L</kbd> clears result</span>
+    </div>
+  </section>
+  <div class="resizer" id="resizer"></div>
+  <section class="pane" id="outputPane">
+    <div class="tabs" id="tabs">
+      <div class="tab active" data-tab="result">Execution Result</div>
+      <div class="tab" data-tab="ast">AST Inspector</div>
+      <div class="tab" data-tab="disasm">Bytecode Disassembler</div>
+      <div class="tab" data-tab="table">Table / CSV Viewer</div>
+    </div>
+    <div class="tabpanels">
+      <div class="tabpanel active" id="panel-result"><div class="empty">Run something to see output here.</div></div>
+      <div class="tabpanel" id="panel-ast"><div class="empty">Run to see the parsed AST for your code (\ast).</div></div>
+      <div class="tabpanel" id="panel-disasm"><div class="empty">Run to see the compiled bytecode for your code (\disasm).</div></div>
+      <div class="tabpanel" id="panel-table"><div class="empty">Run a table-producing expression to see it rendered as a grid.</div></div>
+    </div>
+  </section>
 </div>
-
 <script src="amber.wasm.js"></script>
 <script src="amber.js"></script>
 <script>
-  // ---- theme ---------------------------------------------------------------
-  const THEMES=[["amber","#ffb000"],["midnight","#5aa9ff"],["matrix","#39ff14"],["paper","#d97706"],["synthwave","#ff2fb9"],["mono","#e6e6e6"]];
-  const tbox=document.getElementById("themes");
-  function setTheme(t){document.documentElement.setAttribute("data-theme",t);
-    try{localStorage.setItem("amber-theme",t)}catch(e){}
-    tbox.querySelectorAll(".sw").forEach(s=>s.classList.toggle("active",s.dataset.t===t));}
-  THEMES.forEach(([t,c])=>{const b=document.createElement("button");b.className="sw";b.dataset.t=t;b.style.background=c;b.title=t;b.onclick=()=>setTheme(t);tbox.appendChild(b);});
-  let saved="amber";try{saved=localStorage.getItem("amber-theme")||"amber"}catch(e){}
-  setTheme(saved);
+// ================= theme =================
+const THEMES=[["amber","#ffb000"],["midnight","#5aa9ff"],["matrix","#39ff14"],["paper","#d97706"],["synthwave","#ff2fb9"],["mono","#e6e6e6"]];
+const tbox=document.getElementById("themes");
+function setTheme(t){document.documentElement.setAttribute("data-theme",t);
+  try{localStorage.setItem("amber-theme",t)}catch(e){}
+  tbox.querySelectorAll(".sw").forEach(s=>s.classList.toggle("active",s.dataset.t===t));}
+THEMES.forEach(([t,c])=>{const b=document.createElement("button");b.className="sw";b.dataset.t=t;b.style.background=c;b.title=t;b.onclick=()=>setTheme(t);tbox.appendChild(b);});
+let savedTheme="amber";try{savedTheme=localStorage.getItem("amber-theme")||"amber"}catch(e){}
+setTheme(savedTheme);
 
-  // ---- terminal ------------------------------------------------------------
-  const term=document.getElementById("term"), log=document.getElementById("log"),
-        row=document.getElementById("row"), input=document.getElementById("in"),
-        boot=document.getElementById("boot");
-  const hist=[]; let hi=0;
-  function scroll(){ term.scrollTop=term.scrollHeight; }
-  function append(html){ const d=document.createElement("div"); d.innerHTML=html; log.appendChild(d); }
-  function echo(line){ append('<span class="prompt">amber&gt;&nbsp;</span><span class="userline">'+
-      line.replace(/&/g,"&amp;").replace(/</g,"&lt;")+'</span>'); }
-  function out(ansi){ if(!ansi) return; const h=ansiToHtml(ansi.replace(/\n$/,"")); if(h.length) append(h); }
-  function sys(msg){ append('<span class="sys">'+msg+'</span>'); }
-
-  let vm=null, busy=false;
-  async function bootVM(){
-    boot.style.display="block"; row.style.display="none"; boot.textContent="booting the Amber engine…";
-    vm=new AmberVM();
-    try{ await vm.boot(); }catch(e){ boot.textContent="failed to start: "+e.message; return; }
-    boot.style.display="none"; row.style.display="flex";
-    log.innerHTML="";
-    sys("Amber v1.7 — WebAssembly build · columnar time-series engine");
-    sys("Type an expression and press Enter.  Try:  2+3*4    ·    !10    ·    plot 10*{sin x%6}'!120");
-    sys("Or pick a program from “Load example…”.  Colours &amp; charts render live.");
-    append("");
-    scroll(); input.focus();
+// ================= syntax highlighting (lightweight, editor-side) =================
+// Amber verbs (monadic/dyadic glyphs) & adverbs, per the language's own vocabulary.
+const VERBS = ["+","-","*","%","!","&","|","<",">","=","~","#","_","$",",","^","@",".",":","?"];
+const ADVERBS = ["'","/","\\\\","':","/:","\\\\:"];
+function escHtml(s){return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+function highlightK(src){
+  // token order matters: comments/strings first (consume greedily), then symbols,
+  // then numbers, then adverbs (2-char forms before 1-char), then verbs, then identifiers.
+  let out = "";
+  let i = 0;
+  const n = src.length;
+  while (i < n) {
+    const c = src[i];
+    // comment: "/" starting a token at start-of-line-ish or after whitespace, till EOL
+    if (c === "/" && (i === 0 || /[\s;]/.test(src[i-1]))) {
+      let j = i; while (j < n && src[j] !== "\n") j++;
+      out += '<span class="tok-com">' + escHtml(src.slice(i,j)) + '</span>';
+      i = j; continue;
+    }
+    // string literal
+    if (c === '"') {
+      let j = i+1; while (j < n && src[j] !== '"') { if (src[j] === "\\") j++; j++; }
+      j = Math.min(j+1, n);
+      out += '<span class="tok-str">' + escHtml(src.slice(i,j)) + '</span>';
+      i = j; continue;
+    }
+    // symbol literal: `name(`name)*
+    if (c === "`") {
+      let j = i+1; while (j < n && /[A-Za-z0-9_.]/.test(src[j])) j++;
+      while (src[j] === "`") { j++; while (j < n && /[A-Za-z0-9_.]/.test(src[j])) j++; }
+      out += '<span class="tok-sym">' + escHtml(src.slice(i,j)) + '</span>';
+      i = j; continue;
+    }
+    // number (int/float, possibly a space-separated vector -- highlight token by token)
+    if (/[0-9]/.test(c) || (c === "-" && /[0-9]/.test(src[i+1]||"") && (i===0 || /[\s([;,+\-*%!&|<>=~#_$,^@:?]/.test(src[i-1])))) {
+      let j = i; if (src[j]==="-") j++;
+      while (j < n && /[0-9.]/.test(src[j])) j++;
+      out += '<span class="tok-num">' + escHtml(src.slice(i,j)) + '</span>';
+      i = j; continue;
+    }
+    // adverbs (check 2-char forms first)
+    let adv2 = src.slice(i,i+2);
+    if (adv2 === "':" || adv2 === "/:" || adv2 === "\\:") {
+      out += '<span class="tok-adverb">' + escHtml(adv2) + '</span>'; i += 2; continue;
+    }
+    if (c === "'" || c === "/" || c === "\\") {
+      out += '<span class="tok-adverb">' + escHtml(c) + '</span>'; i++; continue;
+    }
+    // verbs
+    if (VERBS.indexOf(c) !== -1) {
+      out += '<span class="tok-verb">' + escHtml(c) + '</span>'; i++; continue;
+    }
+    // identifier / variable name
+    if (/[A-Za-z_.]/.test(c)) {
+      let j = i; while (j < n && /[A-Za-z0-9_.]/.test(src[j])) j++;
+      out += '<span class="tok-var">' + escHtml(src.slice(i,j)) + '</span>';
+      i = j; continue;
+    }
+    out += escHtml(c); i++;
   }
+  return out || "​";
+}
+const edInput = document.getElementById("editorInput");
+const edHi = document.getElementById("editorHighlight");
+function refreshHighlight(){
+  edHi.innerHTML = highlightK(edInput.value) + (edInput.value.endsWith("\n") ? " " : "");
+}
+edInput.addEventListener("input", refreshHighlight);
+edInput.addEventListener("scroll", () => { edHi.parentElement.scrollTop = edInput.scrollTop; edHi.parentElement.scrollLeft = edInput.scrollLeft; });
+refreshHighlight();
 
-  function runLine(line){
-    echo(line);
-    if(line.trim().length){ out(vm.eval(line)); }
-    scroll();
+// ================= resizable split =================
+const split = document.getElementById("split"), resizer = document.getElementById("resizer"),
+      editorPane = document.getElementById("editorPane"), outputPane = document.getElementById("outputPane");
+let dragging = false;
+resizer.addEventListener("mousedown", () => { dragging = true; resizer.classList.add("active"); document.body.style.userSelect="none"; });
+window.addEventListener("mouseup", () => { dragging = false; resizer.classList.remove("active"); document.body.style.userSelect=""; });
+window.addEventListener("mousemove", e => {
+  if (!dragging) return;
+  const rect = split.getBoundingClientRect();
+  const vertical = split.classList.contains("vertical") || getComputedStyle(split).flexDirection === "column";
+  if (vertical) {
+    const pct = Math.min(80, Math.max(20, ((e.clientY - rect.top) / rect.height) * 100));
+    editorPane.style.flex = "0 0 " + pct + "%"; outputPane.style.flex = "1 1 auto";
+  } else {
+    const pct = Math.min(80, Math.max(20, ((e.clientX - rect.left) / rect.width) * 100));
+    editorPane.style.flex = "0 0 " + pct + "%"; outputPane.style.flex = "1 1 auto";
   }
+});
 
-  input.addEventListener("keydown",e=>{
-    if(e.key==="Enter"){
-      const line=input.value; input.value="";
-      if(line.trim().length){ hist.push(line); hi=hist.length; }
-      runLine(line);
-    } else if(e.key==="ArrowUp"){ if(hi>0){hi--; input.value=hist[hi]||""; e.preventDefault(); setTimeout(()=>input.setSelectionRange(9999,9999),0);} }
-    else if(e.key==="ArrowDown"){ if(hi<hist.length){hi++; input.value=hist[hi]||"";} }
-    else if(e.ctrlKey && (e.key==="l"||e.key==="L")){ log.innerHTML=""; e.preventDefault(); }
+// ================= tabs =================
+const tabs = document.querySelectorAll(".tab");
+tabs.forEach(t => t.addEventListener("click", () => {
+  tabs.forEach(x => x.classList.remove("active"));
+  document.querySelectorAll(".tabpanel").forEach(p => p.classList.remove("active"));
+  t.classList.add("active");
+  document.getElementById("panel-" + t.dataset.tab).classList.add("active");
+}));
+function setPanel(id, html){ document.getElementById("panel-" + id).innerHTML = html || '<div class="empty">(no output)</div>'; }
+
+// ================= snippets =================
+const SNIPPETS = [
+  ["HFT / Tick Analytics", "financial tick analysis: VWAP by symbol over a synthetic trade tape",
+`/ Financial tick / HFT snippet — synthetic trades, VWAP by symbol
+n:2000
+t:([]sym:n?\`AAPL\`MSFT\`GOOG\`AMZN; px:100+n?50.0; qty:10+n?500)
+select vwap:(sum px*qty)%sum qty, trades:#i by sym from t`],
+  ["Vector Math / SIMD", "large-vector arithmetic exercising the SIMD kernels + self-timed benchmark",
+`/ Vector math / SIMD snippet — large elementwise vector ops
+a:!1000000
+b:2*a
+c:a+b
+(#c; sum c; avg c)
+/ engine self-test + timing for the SIMD add kernel:
+\`simd 0`],
+  ["Tacit Functions", "point-free hooks & forks — trains of verbs with no named arguments",
+`/ Tacit functions — hooks (2-trains) and forks (3-trains)
+avgdev:(-;%)          / hook: subtract the average, then divide (per-element)
+above_avg:(>;+/;%:)   / a 3-train style composition
+data:3 1 4 1 5 9 2 6
+avg data
+(- avg data) each data
+{x-avg x}'data`],
+  ["CSV Ingestion", "parse an embedded CSV string into a typed table via `csvr / the CSV self-test",
+`/ CSV ingestion — parse a small CSV into a typed table
+csv:"sym,px,qty\\nAAPL,187.5,100\\nMSFT,410.2,50\\nGOOG,138.9,75"
+t:\`csvr csv
+t
+select avg px, sum qty by sym from t
+/ engine's own CSV parser self-test:
+\`csv0 0`],
+];
+const snipSel = document.getElementById("snippets");
+SNIPPETS.forEach(([name,desc,code],idx)=>{ const o=document.createElement("option"); o.value=idx; o.textContent=name+" — "+desc; snipSel.appendChild(o); });
+snipSel.addEventListener("change", () => {
+  const idx = snipSel.value; snipSel.selectedIndex = 0; if (idx === "") return;
+  edInput.value = SNIPPETS[idx][2]; refreshHighlight(); edInput.focus();
+});
+
+// ================= VM boot + run =================
+let vm = null, busy = false;
+const engineStatus = document.getElementById("engineStatus");
+async function bootVM(){
+  engineStatus.textContent = "booting…";
+  vm = new AmberVM();
+  try { await vm.boot(); } catch(e) { engineStatus.textContent = "failed: " + e.message; return; }
+  engineStatus.textContent = "ready";
+  setPanel("result", '<span style="color:var(--muted)">Amber engine ready — real C interpreter compiled to WASM. Press Run or Shift+Enter.</span>');
+}
+
+// naive table-shape detector for the Table/CSV viewer: turns Amber's own
+// flip-table print format `+`col1`col2!(vals1;vals2)` rendering, OR a raw
+// eval output that already looks column-aligned, into an HTML <table>.
+function tryRenderTable(raw){
+  if (!raw) return null;
+  const lines = raw.replace(/\x1b\[[0-9;]*m/g,"").split("\n").filter(l=>l.length);
+  if (lines.length < 2) return null;
+  // Amber's boxed/columnar table print usually has a header line followed by
+  // rows whose whitespace-separated column counts match the header's.
+  const headerCols = lines[0].trim().split(/\s{1,}/);
+  if (headerCols.length < 2) return null;
+  const rows = [];
+  for (let i = 1; i < lines.length; i++) {
+    const cols = lines[i].trim().split(/\s{2,}|\s(?=[\d`"-])/).filter(x=>x.length);
+    if (cols.length) rows.push(cols);
+  }
+  if (!rows.length) return null;
+  let html = '<table class="resTable"><thead><tr>';
+  headerCols.forEach(h => html += "<th>" + escHtml(h) + "</th>");
+  html += "</tr></thead><tbody>";
+  rows.forEach(r => { html += "<tr>"; r.forEach(c => html += "<td>" + escHtml(c) + "</td>"); html += "</tr>"; });
+  html += "</tbody></table>";
+  return html;
+}
+
+function runCode(){
+  if (!vm || !vm.ready || busy) return;
+  const code = edInput.value;
+  if (!code.trim().length) return;
+  busy = true; engineStatus.textContent = "running…";
+  // ---- Execution Result ----
+  let resHtml = "";
+  code.split(/\n/).forEach(line => {
+    if (!line.trim().length) return;
+    const r = vm.eval(line);
+    resHtml += '<div style="color:var(--muted)">amber&gt; ' + escHtml(line) + "</div>";
+    if (r) resHtml += ansiToHtml(r.replace(/\n$/,"")) + "\n";
   });
-  term.addEventListener("mousedown",e=>{ if(window.getSelection().isCollapsed && e.target.tagName!=="INPUT") setTimeout(()=>input.focus(),0); });
+  setPanel("result", resHtml);
+  // ---- AST Inspector ----
+  try {
+    const astOut = vm.eval("\\ast " + code.trim().split("\n").filter(l=>l.trim().length).pop());
+    setPanel("ast", ansiToHtml(astOut));
+  } catch(e) { setPanel("ast", '<span class="err">' + escHtml(String(e)) + "</span>"); }
+  // ---- Bytecode Disassembler ----
+  try {
+    const lastLine = code.trim().split("\n").filter(l=>l.trim().length).pop();
+    const disOut = vm.eval("\\disasm " + lastLine);
+    setPanel("disasm", ansiToHtml(disOut));
+  } catch(e) { setPanel("disasm", '<span class="err">' + escHtml(String(e)) + "</span>"); }
+  // ---- Table / CSV Viewer ----
+  const lastLine = code.trim().split("\n").filter(l=>l.trim().length).pop();
+  const tableOut = vm.eval(lastLine);
+  const tbl = tryRenderTable(tableOut);
+  setPanel("table", tbl || ('<div class="empty">Last line\'s result doesn\'t look like a table.<br><br>Raw output:</div>' + ansiToHtml(tableOut)));
+  engineStatus.textContent = "ready";
+  busy = false;
+}
+document.getElementById("runBtn").addEventListener("click", runCode);
+document.getElementById("runBtn2").addEventListener("click", runCode);
+edInput.addEventListener("keydown", e => {
+  if ((e.key === "Enter" && e.shiftKey) || (e.key === "Enter" && (e.ctrlKey || e.metaKey))) {
+    e.preventDefault(); runCode();
+  } else if (e.ctrlKey && (e.key === "l" || e.key === "L")) {
+    e.preventDefault(); setPanel("result", "");
+  } else if (e.key === "Tab") {
+    e.preventDefault();
+    const s = edInput.selectionStart, en = edInput.selectionEnd;
+    edInput.value = edInput.value.slice(0,s) + "  " + edInput.value.slice(en);
+    edInput.selectionStart = edInput.selectionEnd = s+2;
+    refreshHighlight();
+  }
+});
 
-  // examples dropdown
-  const sel=document.getElementById("examples");
-  AMBER_EXAMPLES.forEach(([f,d])=>{ const o=document.createElement("option"); o.value=f; o.textContent=f+"  —  "+d; sel.appendChild(o); });
-  sel.addEventListener("change",()=>{ const f=sel.value; sel.selectedIndex=0; if(!f||!vm) return;
-    append('<span class="sys">/ ── loading '+f+' ──</span>');
-    echo("\\l "+f);
-    out(vm.load(f));
-    scroll(); input.focus();
-  });
+// ================= examples =================
+const exSel = document.getElementById("examples");
+AMBER_EXAMPLES.forEach(([f,d]) => { const o=document.createElement("option"); o.value=f; o.textContent=f+" — "+d; exSel.appendChild(o); });
+exSel.addEventListener("change", () => {
+  const f = exSel.value; exSel.selectedIndex = 0; if (!f || !vm) return;
+  const r = vm.load(f);
+  setPanel("result", '<div style="color:var(--muted)">/ ── loaded ' + f + ' ──</div>' + ansiToHtml(r));
+  tabs.forEach(x=>x.classList.remove("active")); document.querySelectorAll(".tabpanel").forEach(p=>p.classList.remove("active"));
+  document.querySelector('[data-tab="result"]').classList.add("active"); document.getElementById("panel-result").classList.add("active");
+});
+document.getElementById("reset").addEventListener("click", async () => {
+  setPanel("result", '<span style="color:var(--muted)">… resetting session (fresh memory)…</span>');
+  await bootVM();
+});
 
-  document.getElementById("clear").onclick=()=>{ log.innerHTML=""; input.focus(); };
-  document.getElementById("reset").onclick=async()=>{ sys("… resetting session (fresh memory)…"); await bootVM(); };
-
-  bootVM();
+bootVM();
 </script>
 </body>
 </html>
