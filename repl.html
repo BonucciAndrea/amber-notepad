@@ -50,13 +50,29 @@ border-bottom:1px solid var(--border);flex:none;font-size:11.5px;color:var(--mut
 .resizer:hover,.resizer.active{background:var(--accent)}
 #split.vertical .resizer{width:auto;height:5px;cursor:row-resize}
 
-/* ---- editor ---- */
-#editorWrap{flex:1;position:relative;overflow:auto;background:var(--panel)}
+/* ---- editor ----
+   The highlight <pre> and the real <textarea> are stacked exactly on top of
+   each other (position:absolute; inset:0) and BOTH scroll natively -- the
+   textarea is the single source of truth for scroll position (it's what you
+   actually interact with), and every "scroll" event copies its scrollTop/
+   scrollLeft onto the highlight layer beneath it (see the JS below).
+   Previously #editorWrap itself was the scrolling element while the
+   textarea had no explicit overflow (so it got the browser's own default
+   scrollbar too) -- two independent scrollable boxes for what should be one
+   logical view, which is what caused the reported "text looks overlaid /
+   doubled" glitch: the highlight layer and the real text could each be
+   scrolled to a different position (most visible right after selecting
+   text, which triggers the textarea's own native scroll-into-view). Giving
+   both layers their own matching overflow:auto and syncing scrollTop
+   directly (instead of scrolling an ancestor wrapper) makes them
+   physically incapable of drifting apart. */
+#editorWrap{flex:1;position:relative;background:var(--panel)}
 #editorHighlight,#editorInput{
-margin:0;padding:14px 16px;font-family:var(--mono);font-size:var(--ed-fs);line-height:1.55;
-white-space:pre-wrap;word-break:break-word;tab-size:2;}
-#editorHighlight{position:absolute;inset:0;pointer-events:none;color:var(--fg)}
-#editorInput{position:relative;width:100%;min-height:100%;background:transparent;color:transparent;
+position:absolute;inset:0;margin:0;padding:14px 16px;font-family:var(--mono);font-size:var(--ed-fs);line-height:1.55;
+white-space:pre-wrap;word-break:break-word;tab-size:2;overflow-y:auto;overflow-x:hidden}
+#editorHighlight{pointer-events:none;color:var(--fg);scrollbar-width:none}
+#editorHighlight::-webkit-scrollbar{display:none}
+#editorInput{width:100%;height:100%;background:transparent;color:transparent;
 caret-color:var(--fg);border:0;outline:0;resize:none;-webkit-text-fill-color:transparent}
 .tok-verb{color:var(--verb);font-weight:600}
 .tok-adverb{color:var(--adverb);font-weight:600}
@@ -238,7 +254,11 @@ function refreshHighlight(){
   edHi.innerHTML = highlightK(edInput.value) + (edInput.value.endsWith("\n") ? " " : "");
 }
 edInput.addEventListener("input", refreshHighlight);
-edInput.addEventListener("scroll", () => { edHi.parentElement.scrollTop = edInput.scrollTop; edHi.parentElement.scrollLeft = edInput.scrollLeft; });
+// keep the (invisible, pointer-events:none) highlight layer's own scroll
+// position locked to the real textarea's -- both are absolutely-positioned,
+// same-size, independently-scrollable elements stacked on top of each
+// other, so this has to run on every scroll, not just on input.
+edInput.addEventListener("scroll", () => { edHi.scrollTop = edInput.scrollTop; edHi.scrollLeft = edInput.scrollLeft; });
 refreshHighlight();
 
 // ================= resizable split =================
@@ -306,7 +326,7 @@ const snipSel = document.getElementById("snippets");
 SNIPPETS.forEach(([name,desc,code],idx)=>{ const o=document.createElement("option"); o.value=idx; o.textContent=name+" — "+desc; snipSel.appendChild(o); });
 snipSel.addEventListener("change", () => {
   const idx = snipSel.value; snipSel.selectedIndex = 0; if (idx === "") return;
-  edInput.value = SNIPPETS[idx][2]; refreshHighlight(); edInput.focus();
+  edInput.value = SNIPPETS[idx][2]; refreshHighlight(); edInput.scrollTop = 0; edHi.scrollTop = 0; edInput.focus();
 });
 
 // ================= VM boot + run =================
@@ -372,7 +392,7 @@ AMBER_EXAMPLES.forEach(([f,d]) => { const o=document.createElement("option"); o.
 exSel.addEventListener("change", () => {
   const f = exSel.value; exSel.selectedIndex = 0; if (!f || !vm) return;
   const src = vm.readFile(f);
-  edInput.value = src; refreshHighlight(); edInput.focus();
+  edInput.value = src; refreshHighlight(); edInput.scrollTop = 0; edHi.scrollTop = 0; edInput.focus();
   setPanel("result", '<div style="color:var(--muted)">/ ── loaded ' + f + ' into the editor — press Run to execute ──</div>');
 });
 document.getElementById("reset").addEventListener("click", async () => {
