@@ -296,7 +296,7 @@ const SNIPPETS = [
 `/ Financial tick / HFT snippet — synthetic trades, VWAP by symbol
 n:2000
 t:([]sym:n?\`AAPL\`MSFT\`GOOG\`AMZN; px:100+n?50.0; qty:10+n?500)
-select vwap:(sum px*qty)%sum qty, trades:#i by sym from t`],
+select vwap:(sum px*qty)%sum qty, trades:#px by sym from t`],
   ["Vector Math / SIMD", "large-vector arithmetic exercising the SIMD kernels + self-timed benchmark",
 `/ Vector math / SIMD snippet — large elementwise vector ops
 a:!1000000
@@ -305,20 +305,25 @@ c:a+b
 (#c; sum c; avg c)
 / engine self-test + timing for the SIMD add kernel:
 \`simd 0`],
-  ["Tacit Functions", "point-free hooks & forks — trains of verbs with no named arguments",
-`/ Tacit functions — hooks (2-trains) and forks (3-trains)
-avgdev:(-;%)          / hook: subtract the average, then divide (per-element)
-above_avg:(>;+/;%:)   / a 3-train style composition
+  ["Tacit Functions", "point-free style — curried partials, verbs as values, and adverbs, no named args",
+`/ Tacit / point-free style — currying, verbs-as-values, and adverbs
+inc:1+                 / curried partial application
+inc'1 2 3 4             / apply to each element
+sq:{x*x}
+sum(sq'1 2 3 4 5)       / sum of squares, point-free composition
 data:3 1 4 1 5 9 2 6
-avg data
-(- avg data) each data
-{x-avg x}'data`],
-  ["CSV Ingestion", "parse an embedded CSV string into a typed table via `csvr / the CSV self-test",
-`/ CSV ingestion — parse a small CSV into a typed table
-csv:"sym,px,qty\\nAAPL,187.5,100\\nMSFT,410.2,50\\nGOOG,138.9,75"
-t:\`csvr csv
+m:avg data
+{x-m}'data              / each element minus the mean
+f:+                     / a verb is a first-class value
+f[10;20]                / dyadic call
+f/1 2 3 4               / same verb, used as a fold (+/ = sum)`],
+  ["CSV Ingestion", "write a small CSV to the sandbox filesystem and parse it into a typed table via `csvr",
+`/ CSV ingestion — \`csvr parses a FILE, so write the CSV text first
+csv:"sym,px,qty\\nAAPL,187.5,100\\nMSFT,410.2,50\\nGOOG,138.9,75\\n"
+"/tmp/csv_demo.csv" 1:csv
+t:\`csvr "/tmp/csv_demo.csv"
 t
-select avg px, sum qty by sym from t
+select avgPx:avg px, sumQty:sum qty by sym from t
 / engine's own CSV parser self-test:
 \`csv0 0`],
 ];

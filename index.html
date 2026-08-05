@@ -81,8 +81,8 @@ WebAssembly. Columns, tables, qSQL, temporal types, and braille charts — no in
 <div class="demo">
 <div class="bar"><i></i><i></i><i></i></div>
 <pre><span class="c">/ a table, a group-by, and a chart — all in the browser</span>
-trades:([]<span class="k">sym</span>:`AAPL`MSFT`AAPL`MSFT; <span class="k">px</span>:<span class="n">191.2 402.5 191.9 403.1</span>; <span class="k">qty</span>:<span class="n">100 50 75 60</span>)
-<span class="k">select</span> avg px, sum qty <span class="k">by</span> sym <span class="k">from</span> trades
+t:([]<span class="k">sym</span>:`AAPL`MSFT`AAPL`MSFT; <span class="k">px</span>:<span class="n">191.2 402.5 191.9 403.1</span>; <span class="k">qty</span>:<span class="n">100 50 75 60</span>)
+<span class="k">select</span> avg px, sum qty <span class="k">by</span> sym <span class="k">from</span> t
 plot (<span class="n">10</span>*{sin x%<span class="n">6</span>}'!<span class="n">120</span>; <span class="n">60</span>; <span class="n">12</span>) <span class="c">/ braille line chart</span>
 gentq <span class="n">500</span> <span class="c">/ generate a synthetic trade/quote session</span>
 candle bars[<span class="n">10</span>; <span class="k">select</span> <span class="k">from</span> trades <span class="k">where</span> sym=`AAPL]</pre>
