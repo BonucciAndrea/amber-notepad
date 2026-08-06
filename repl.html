@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Amber · IDE</title>
+<title>Amber · IDE · v1.9.4</title>
 <style>
 :root{
 --bg:#0a0705;--bg2:#140f0a;--panel:#1b130c;--panel2:#231909;--fg:#f5e6d0;--muted:#b79b78;
@@ -75,6 +75,16 @@ white-space:pre-wrap;word-break:break-word;tab-size:2;overflow-y:auto;overflow-x
 #editorInput{width:100%;height:100%;background:transparent;color:transparent;
 caret-color:var(--fg);border:0;outline:0;resize:none;-webkit-text-fill-color:transparent}
 .tok-verb{color:var(--verb);font-weight:600}
+.tok-qsql{color:var(--accent);font-weight:700}
+.tok-builtin{color:var(--adverb);font-weight:600}
+.tok-ser{color:var(--accent2);font-weight:700}
+/* ---- Rust-style diagnostics -------------------------------------------------
+   The engine emits these as ANSI, which ansiToHtml() colours. These rules give
+   the block room to breathe and stop the gutter rule from being broken up by
+   the output pane's default line spacing. */
+.out .diag{display:block;margin:6px 0;padding:6px 10px;border-left:3px solid #ff5f5f;
+  background:rgba(255,95,95,.07);border-radius:0 5px 5px 0;line-height:1.45}
+.out .diag .diag-code{font-weight:700}
 .tok-adverb{color:var(--adverb);font-weight:600}
 .tok-num{color:var(--num)}
 .tok-var{color:var(--var)}
@@ -110,7 +120,7 @@ header .hideSm{display:none}
 </head>
 <body>
 <header>
-<div class="brand"><b>◆</b> amber <span style="font-weight:400;color:var(--muted)">· ide</span></div>
+<div class="brand"><b>◆</b> amber <span style="font-weight:400;color:var(--muted)">· ide · v1.9.4</span></div>
 <a class="home" href="index.html">← home</a>
 <div class="spacer"></div>
 <select id="snippets"><option value="">Snippets…</option></select>
@@ -190,6 +200,16 @@ document.getElementById("outZoomOut").addEventListener("click",()=>{outFs-=1;set
 // ================= syntax highlighting (lightweight, editor-side) =================
 // Amber verbs (monadic/dyadic glyphs) & adverbs, per the language's own vocabulary.
 const VERBS = ["+","-","*","%","!","&","|","<",">","=","~","#","_","$",",","^","@",".",":","?"];
+// Modern Amber vocabulary the plain glyph tokenizer cannot see, because these
+// are NAMES not symbols: bare-qSQL clause keywords (rewritten per line by qrw),
+// the terminal-chart verbs and the financial analytics in fin.k. Without these
+// they highlighted as ordinary variables, which made a query indistinguishable
+// from an expression at a glance.
+const QSQL = ["select","exec","update","delete","from","where","by"];
+const BUILTINS = ["plot","candle","gentq","taq","bars","vwap","symstats",
+                  "show","peach","aj","wj","xasc","xdesc","xkey","unkey","xgroup",
+                  "first","last","sum","avg","max","min","count","med","dev","var",
+                  "wavg","raze","distinct","except","inter","union","flip","enlist"];
 function escHtml(s){return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
 function highlightK(src){
   // token order matters: comments/strings first (consume greedily), then symbols,
@@ -198,6 +218,10 @@ function highlightK(src){
   let i = 0;
   const n = src.length;
   while (i < n) {
+    // binary serializer: -8!x / -9!y read as one token, not minus-eight-bang
+    if (src[i] === "-" && (src[i+1] === "8" || src[i+1] === "9") && src[i+2] === "!") {
+      out += '<span class="tok-ser">' + escHtml(src.slice(i,i+3)) + '</span>'; i += 3; continue;
+    }
     const c = src[i];
     // comment: "/" starting a token at start-of-line-ish or after whitespace, till EOL
     if (c === "/" && (i === 0 || /[\s;]/.test(src[i-1]))) {
@@ -238,10 +262,15 @@ function highlightK(src){
     if (VERBS.indexOf(c) !== -1) {
       out += '<span class="tok-verb">' + escHtml(c) + '</span>'; i++; continue;
     }
-    // identifier / variable name
+    // identifier / variable name -- qSQL clause keywords and known builtins get
+    // their own classes so a query reads as a query.
     if (/[A-Za-z_.]/.test(c)) {
       let j = i; while (j < n && /[A-Za-z0-9_.]/.test(src[j])) j++;
-      out += '<span class="tok-var">' + escHtml(src.slice(i,j)) + '</span>';
+      const w = src.slice(i,j);
+      const cls = QSQL.indexOf(w) !== -1 ? "tok-qsql"
+                : BUILTINS.indexOf(w) !== -1 ? "tok-builtin"
+                : "tok-var";
+      out += '<span class="' + cls + '">' + escHtml(w) + '</span>';
       i = j; continue;
     }
     out += escHtml(c); i++;

@@ -1,5 +1,25 @@
 # Amber — browser IDE (WebAssembly)
 
+**Amber v1.9.4** · engine rebuilt from the current C sources.
+
+What's new in this build:
+
+- **Bare qSQL everywhere.** `select … from t where …` now works in the editor
+  *and* inside the bundled examples. Examples used to have to spell it
+  `sel"select …"`, because the loader ran files through the C loader, which
+  bypasses the per-line `qrw` rewriter that the editor gets. The loader now runs
+  files through the same `eval()` the editor uses (accumulating statements until
+  their brackets balance, so multi-line lambdas still work).
+- **Binary serialization.** `-8!x` packs any value into bytes, `-9!y` unpacks it
+  byte-exact — attributes, nulls and infinities included. See `serialize.k`.
+- **Rust-style diagnostics.** Errors render once, with a category code
+  (`E0101`…`E0112`), a token-spanning underline, an inline label and actionable
+  help. The engine's internal eval-wrapper diagnostic is filtered out so you see
+  exactly one report, for your own code.
+- **Syntax highlighting** for `-8!`/`-9!`, `plot`/`candle`, the `fin.k`
+  analytics (`gentq`, `taq`, `bars`, `vwap`, `symstats`) and bare-qSQL keywords.
+
+
 A self-contained website that runs the **real Amber interpreter** (the C engine
 in `../src`, including SIMD kernels, the bytecode VM, the AST inspector, the
 multithreaded vector engine, and the CSV parser) compiled to WebAssembly. No

@@ -1,0 +1,31 @@
+{
+  "name": "amber-notepad",
+  "version": "1.9.4",
+  "description": "Browser IDE for the Amber array language - the real C interpreter compiled to WebAssembly.",
+  "license": "AGPL-3.0-or-later",
+  "private": true,
+  "main": "index.html",
+  "files": [
+    "index.html",
+    "repl.html",
+    "amber.js",
+    "amber.wasm",
+    "amber.wasm.js",
+    "README.md"
+  ],
+  "engines": {
+    "amber": "1.9.4"
+  },
+  "scripts": {
+    "start": "python3 -m http.server 8080"
+  },
+  "keywords": [
+    "amber",
+    "k",
+    "array-language",
+    "kdb",
+    "wasm",
+    "repl",
+    "ide"
+  ]
+}
