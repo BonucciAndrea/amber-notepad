@@ -1,6 +1,6 @@
 # Amber — browser IDE (WebAssembly)
 
-**Amber v1.9.4** · engine rebuilt from the current C sources.
+**Amber v2.0.0.4** · engine rebuilt from the current C sources.
 
 What's new in this build:
 

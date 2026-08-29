@@ -1,6 +1,6 @@
 {
   "name": "amber-notepad",
-  "version": "1.9.4",
+  "version": "2.0.0",
   "description": "Browser IDE for the Amber array language - the real C interpreter compiled to WebAssembly.",
   "license": "AGPL-3.0-or-later",
   "private": true,
@@ -14,7 +14,7 @@
     "README.md"
   ],
   "engines": {
-    "amber": "1.9.4"
+    "amber": "2.0.0"
   },
   "scripts": {
     "start": "python3 -m http.server 8080"
