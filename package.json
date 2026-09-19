@@ -23,7 +23,7 @@
     "amber",
     "k",
     "array-language",
-    "kdb",
+    "q",
     "wasm",
     "repl",
     "ide"

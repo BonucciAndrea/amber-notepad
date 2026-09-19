@@ -13,7 +13,7 @@ const EXAMPLES = [
   ["attributes.k", "Column attributes and how they speed up search."],
   ["graphs.k", "Terminal graphing: braille line charts, candlesticks, x-axis, multi-series."],
   ["hft.k", "High-frequency-trading style tick analytics."],
-  ["tick.k", "Realistic intraday trades & quotes, kdb+/tick style."],
+  ["tick.k", "Realistic intraday trades & quotes, tickerplant style."],
   ["wj.k", "Window join: summarise prevailing quotes around each trade."],
   ["peach.k", "Parallel-each demo (runs sequentially in the browser sandbox)."],
   ["bench.k", "Micro-benchmarks of core operations."],
