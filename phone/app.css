@@ -14,7 +14,9 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 body { position: fixed; inset: 0; overflow: hidden; }
 button { font: inherit; color: inherit; border: 0; background: none; padding: 0; cursor: pointer;
   -webkit-user-select: none; user-select: none; touch-action: manipulation; }
-#app { display: flex; flex-direction: column; height: 100dvh; padding-top: var(--sat); }
+#app { position: fixed; left: 0; right: 0; top: 0; display: flex; flex-direction: column; height: 100dvh;
+  padding-top: var(--sat); will-change: transform; }
+#kb, #tools, #hint, #top, .k, .tb { -webkit-touch-callout: none; }
 
 /* header */
 #top { display: flex; align-items: center; justify-content: space-between; padding: 6px 12px 6px 10px;

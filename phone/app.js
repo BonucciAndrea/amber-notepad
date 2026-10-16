@@ -399,6 +399,22 @@ $("#menuBtn").onclick = () => openSheet("<h3>Amber</h3>" +
 $("#fileBtn").onclick = filesSheet;
 $("#runBtn").onclick = () => { if (sysKb) setSysKb(false); run(); };
 
+// ---------------------------------------------------------------- keep the page still (iOS)
+// Focusing the editor makes iOS scroll the page to show it, even though the page is position:fixed;
+// the keys are then drawn in one place and hit in another. Undo any such scroll at once, and size the
+// app to the visual viewport so drawing and touching always agree.
+const app = $("#app");
+function unscroll() { if (window.scrollX || window.scrollY) window.scrollTo(0, 0);
+  if (document.documentElement.scrollTop) document.documentElement.scrollTop = 0; if (document.body.scrollTop) document.body.scrollTop = 0; }
+function fit() { const v = window.visualViewport; app.style.height = (v ? v.height : window.innerHeight) + "px";
+  app.style.transform = v && v.offsetTop ? "translateY(" + v.offsetTop + "px)" : ""; unscroll(); }
+window.addEventListener("scroll", unscroll, { passive: true });
+if (window.visualViewport) { visualViewport.addEventListener("resize", fit); visualViewport.addEventListener("scroll", fit); }
+window.addEventListener("orientationchange", () => setTimeout(fit, 300));
+ed.addEventListener("focus", () => { unscroll(); setTimeout(fit, 0); setTimeout(fit, 300); });
+document.addEventListener("touchmove", e => { if (!e.target.closest("#log, #tools, .words, #sheet .panel, #card, #ed")) e.preventDefault(); }, { passive: false });
+fit();
+
 // ---------------------------------------------------------------- start
 document.documentElement.style.setProperty("--fs", fs + "px");
 if (cur && files()[cur] === undefined) { cur = null; store.set("cur", null); }
