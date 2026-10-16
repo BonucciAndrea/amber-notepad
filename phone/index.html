@@ -27,6 +27,7 @@
       </svg>
       <span class="name">Amber</span><span id="ver" class="ver">…</span>
     </div>
+    <button id="fileBtn" class="file" aria-label="Files">scratch</button>
     <div class="actions">
       <button id="menuBtn" class="icon" aria-label="Menu">⋯</button>
       <button id="runBtn" class="run" aria-label="Run">Run ▶</button>
@@ -42,6 +43,8 @@
       spellcheck="false" enterkeyhint="go" placeholder="type with the keys below, tap Run"></textarea>
   </section>
 
+  <div id="tools" aria-label="Edit"></div>
+
   <div id="hint"><span class="hg"></span><span class="ht">tap a key · hold it for its examples</span></div>
 
   <nav id="kb" aria-label="Amber keyboard"></nav>
@@ -49,6 +52,8 @@
 
 <div id="card" class="hidden" role="dialog"></div>
 <div id="sheet" class="hidden" role="dialog"></div>
+<div id="toast" class="hidden" role="status"></div>
+<input id="imp" type="file" accept=".k,.q,.txt,text/plain" multiple hidden>
 
 <script src="rt.js"></script>
 <script src="keys.js"></script>

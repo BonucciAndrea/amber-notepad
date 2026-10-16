@@ -8,10 +8,16 @@ offline, with its own keyboard.
   above the keys says what it does, dyadic and monadic. Hold a key for its card: the examples there were all
   computed by this engine (`tools/genkeys.js`), and tapping one puts it in the editor.
 - **q** has the words (`select from where by`, `sum avg`, `aj lj`...), **abc** the letters and digits.
-- **Run** evaluates the editor (several lines are fine) and logs the result. Tables render as grids. Tap an
-  earlier input in the log to edit it again, or **↑** for the history. The menu has examples, the system
-  keyboard for long names, and a reset.
-- Nothing leaves the phone. Definitions (`name: ...`) are replayed when the app starts again.
+- **The edit bar** above the keys: undo and redo, line up and down, select all or the line, copy, cut, paste
+  (the system clipboard, so it works with every other app), run just this line, and the history.
+- **Run** evaluates the editor (several lines are fine) and logs the result; tables render as grids.
+  In the log, tap an input to edit it again, tap an output to copy it, hold either for copy, run again, remove.
+- **Files.** The chip in the header opens them: named scripts kept on the phone, saved as you type. With a file
+  open, Run keeps its text; `\l name.k` in any input runs a saved file, so scripts can load each other. Files
+  import from and share to the iPhone's Files app (AirDrop, Messages...), and Amber's bundled example scripts
+  open as files. With no file open the editor is a scratch line: Run logs it and clears it, like a REPL.
+- The menu: snippets, copy the whole log, the system keyboard for long names, A− / A+ text size, clear, reset.
+- Nothing leaves the phone. Definitions (`name: ...`) made on the scratch line are replayed at the next start.
 
 ## Install it on an iPhone
 

@@ -6,7 +6,7 @@
   --err: #ff6b6b; --ok: #8fd46a;
   --mono: ui-monospace, "SF Mono", Menlo, "JetBrains Mono", Consolas, monospace;
   --sans: -apple-system, system-ui, "Inter", "Segoe UI", Roboto, sans-serif;
-  --sat: env(safe-area-inset-top, 0px); --sab: env(safe-area-inset-bottom, 0px);
+  --sat: env(safe-area-inset-top, 0px); --sab: env(safe-area-inset-bottom, 0px); --fs: 17px;
 }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font-family: var(--sans);
@@ -34,10 +34,10 @@ button { font: inherit; color: inherit; border: 0; background: none; padding: 0;
 #log { flex: 1 1 auto; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 8px 10px 4px; }
 .cell { margin: 0 0 10px; }
 .cell.sys { color: var(--faint); font-size: 13px; }
-.in { font: 14px/1.45 var(--mono); white-space: pre-wrap; word-break: break-word; padding: 2px 0 2px 16px;
+.in { font: calc(var(--fs) - 3px)/1.45 var(--mono); white-space: pre-wrap; word-break: break-word; padding: 2px 0 2px 16px;
   position: relative; color: var(--text); }
 .in::before { content: "›"; position: absolute; left: 2px; color: var(--amber); font-weight: 700; }
-.out { font: 13px/1.2 var(--mono); white-space: pre; overflow-x: auto; color: #d7dae0; margin-top: 3px;
+.out { font: calc(var(--fs) - 4px)/1.2 var(--mono); white-space: pre; overflow-x: auto; color: #d7dae0; margin-top: 3px;
   padding: 6px 8px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; max-height: 60vh; }
 .out:empty { display: none; }
 .out.err { border-color: #5a2a2a; }
@@ -47,7 +47,7 @@ button { font: inherit; color: inherit; border: 0; background: none; padding: 0;
 /* editor */
 #edit { border-top: 1px solid var(--line); background: var(--surface); padding: 6px 10px; }
 #ed { width: 100%; resize: none; border: 0; outline: none; background: transparent; color: var(--text);
-  font: 17px/1.4 var(--mono); caret-color: var(--amber); min-height: 2.8em; max-height: 9.8em; padding: 2px 0; }
+  font: var(--fs)/1.4 var(--mono); caret-color: var(--amber); min-height: 2.8em; padding: 2px 0; }
 #ed::placeholder { color: var(--faint); font-family: var(--sans); font-size: 15px; }
 
 /* hint bar */
@@ -101,3 +101,28 @@ button { font: inherit; color: inherit; border: 0; background: none; padding: 0;
 #sheet .item small { display: block; color: var(--faint); font-size: 12px; margin-top: 2px; font-family: var(--mono);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #sheet .about { color: var(--dim); font-size: 13px; line-height: 1.5; padding: 4px 10px 10px; }
+
+/* the current file, in the header */
+.file { flex: 0 1 auto; min-width: 0; max-width: 42vw; margin: 0 6px; padding: 5px 10px; border-radius: 9px; font: 13px var(--mono);
+  color: var(--dim); background: var(--key); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.file.on { color: var(--amberSoft); background: #2a2010; }
+.tag { font: 11px var(--sans); color: var(--ink); background: var(--amberSoft); border-radius: 5px; padding: 0 5px; margin-right: 6px; }
+
+/* the edit bar */
+#tools { display: flex; gap: 4px; padding: 5px 6px; background: #101016; border-top: 1px solid var(--line); overflow-x: auto;
+  -webkit-user-select: none; user-select: none; touch-action: pan-x; scrollbar-width: none; }
+#tools::-webkit-scrollbar { display: none; }
+.tb { flex: 0 0 auto; min-width: 34px; height: 30px; padding: 0 8px; border-radius: 8px; background: var(--key); color: var(--dim);
+  font: 600 15px var(--sans); }
+.tb.w { font: 600 13px var(--sans); }
+.tb.down, .tb:active { background: #3a3a4a; color: var(--text); }
+
+/* toast, name input, two-up sheet items */
+#toast { position: fixed; left: 50%; top: calc(56px + var(--sat)); transform: translateX(-50%); z-index: 40; background: #2a2010;
+  color: var(--amberSoft); border: 1px solid #5a4318; padding: 7px 14px; border-radius: 18px; font-size: 13.5px; box-shadow: 0 6px 20px #0008; }
+.nm { width: 100%; font: 17px var(--mono); padding: 11px 12px; margin: 2px 0 8px; border-radius: 10px; border: 1px solid #3a3a4a;
+  background: #0e0e13; color: var(--text); outline: none; }
+.nm:focus { border-color: var(--amber); }
+#sheet .item.ok { background: linear-gradient(135deg, var(--amber), var(--amber2)); color: var(--ink); font-weight: 700; text-align: center; }
+#sheet .two { display: flex; gap: 8px; } #sheet .two .item { text-align: center; font-weight: 700; background: var(--key); }
+#sheet .about code { font-family: var(--mono); color: var(--amberSoft); }
