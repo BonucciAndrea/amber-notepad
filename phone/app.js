@@ -1,19 +1,25 @@
-/* app.js - the phone notepad: a custom keyboard of every Amber primitive, an editor, a log, files.
-   Keys act on pointerup (pointerdown is cancelled so the editor keeps its caret and iOS never shows
-   its own keyboard); holding a key opens its card with the engine's own examples.
-   Files are named scripts kept on the phone (localStorage); a file in the editor saves itself as you
-   type, Run keeps its text, and `\l name.k` in any input runs a saved file. With no file open the
-   editor is a scratch line: Run logs it and clears it, as a REPL does. */
+/* app.js - the phone notepad: a keyboard of every Amber primitive, an editor, a log, files.
+
+   The editor is drawn by this file, not a native text box: iOS scrolls and resizes the page whenever a
+   text box takes focus or its caret moves, which put touches out of line with the keys and moved the
+   layout as you typed. Here nothing ever has focus, the text, caret and selection are plain elements,
+   and every height is fixed, so the page never moves. A tap in the text places the caret (monospace,
+   so a position is a row and a column), a double tap selects a word. "Edit with the iPhone keyboard"
+   opens the whole text in a native box inside a sheet, for long names and native paste.
+
+   Keys act on release; holding one opens its card with the engine's own examples. Files are named
+   scripts kept on the phone and saved as you type; `\l name.k` in any input runs one. With no file
+   open the editor is a scratch line: Run logs it and clears it, as a REPL does. */
 (function () {
 "use strict";
 const $ = s => document.querySelector(s);
 const K = window.AMBER_KEYS;
-const ed = $("#ed"), log = $("#log"), kb = $("#kb"), hint = $("#hint"), card = $("#card"), sheet = $("#sheet");
+const log = $("#log"), kb = $("#kb"), hint = $("#hint"), card = $("#card"), sheet = $("#sheet");
+const edBox = $("#ed"), edText = $("#edt"), caretEl = $("#caret"), phEl = $("#ph");
 const store = { get: (k, d) => { try { const v = localStorage.getItem("amber." + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
                 set: (k, v) => { try { localStorage.setItem("amber." + k, JSON.stringify(v)); } catch (e) { toast("storage is full"); } } };
 const escH = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
 
-// ---------------------------------------------------------------- toast
 let toastT = 0;
 function toast(msg) { const t = $("#toast"); t.textContent = msg; t.classList.remove("hidden"); clearTimeout(toastT);
   toastT = setTimeout(() => t.classList.add("hidden"), 1400); }
@@ -23,63 +29,188 @@ let vm = null;
 const boot = async () => {
   try {
     vm = await new AmberVM().boot();
+    vm.eval("`diag 0");                                          // q-style errors: 'type, the code, a caret
     $("#ver").textContent = vm.version();
     $("#boot").textContent = "Amber " + vm.version() + " · the real interpreter, running on this phone, offline";
-    for (const s of store.get("defs", [])) evalSrc(s);             // replay the session's definitions
+    for (const s of store.get("defs", [])) evalSrc(s);
   } catch (e) { $("#boot").textContent = "the engine failed to start: " + e.message; }
 };
-// an error is reported twice: for the user's code and again for the engine's eval wrapper
-// (wprint(. qrw "...")); the desktop IDE drops the second report, and so does this
-function dropWrapper(out) {
-  if (!out.includes("error[")) return out;
-  const blocks = []; let cur = [];
-  for (const line of out.split("\n")) {
-    if (/^error\[/.test(stripAnsi(line)) && cur.length) { blocks.push(cur); cur = []; }
-    cur.push(line);
+// An error comes back as 'name, then pairs of lines, the code and a caret under the failing spot, for
+// the user's line and for the engine's eval wrapper (wprint(. qrw "...")), which is dropped.
+const WHY = { type: "wrong type for this operation", length: "the lengths do not match", rank: "wrong number of arguments",
+  domain: "outside what this operation accepts", index: "index out of range", nyi: "not implemented yet", parse: "syntax error",
+  limit: "too big", value: "no such name", mismatch: "the columns do not match", "s-fail": "not sorted", "u-fail": "not unique",
+  io: "file error", nonce: "not supported here", stack: "too deep", wsfull: "out of memory" };
+function asError(raw) {
+  const t = stripAnsi(raw).replace(/\n+$/, ""); if (!/^'/.test(t)) return null;
+  const L = t.split("\n"), name = L[0].slice(1).trim(), frames = [];
+  for (let k = 1; k < L.length; k += 2) {
+    const code = L[k] || "", car = L[k + 1] || "";
+    if (/wprint\(|\bqrw "/.test(code) || !code.trim()) continue;
+    frames.push([code.replace(/^ /, ""), car.replace(/^ /, "")]);
   }
-  blocks.push(cur);
-  return blocks.filter(b => !/wprint\(|\bqrw "/.test(stripAnsi(b.join("\n")))).map(b => b.join("\n")).join("\n");
+  const why = WHY[name] || (/^[A-Za-z][\w.]*$/.test(name) ? name + " is not defined" : "");
+  return { name, why, frames, text: "'" + name + (why ? "  " + why : "") + frames.map(f => "\n" + f[0] + "\n" + f[1]).join("") };
 }
-// evaluate a script; `\l name` of a saved file runs that file's statements (at most 8 deep)
+// evaluate a script: one part per statement, {ok: output} or {err: error}; `\l name` of a saved file runs it
 function evalSrc(src, depth) {
-  let out = ""; depth = depth || 0;
+  const parts = []; depth = depth || 0;
   for (const st of amberStatements(src)) {
     const m = /^\\l\s+(\S+)\s*$/.exec(st.trim()), fs = files();
     if (m && fs[m[1]] !== undefined) {
-      out += depth < 8 ? evalSrc(fs[m[1]], depth + 1) : "\x1b[31m'\\l nested too deep\x1b[0m\n";
-    } else out += dropWrapper(vm.eval(st));
+      if (depth < 8) parts.push(...evalSrc(fs[m[1]], depth + 1));
+      else parts.push({ err: { name: "load", why: "\\l nested too deep", frames: [], text: "'load" } });
+      continue;
+    }
+    const out = vm.eval(st), e = asError(out);
+    if (e) parts.push({ err: e }); else if (out) parts.push({ ok: out });
   }
-  return out;
+  return parts;
 }
 
-// ---------------------------------------------------------------- input echo highlighting
+// ---------------------------------------------------------------- syntax colours, per character
 const WORDS = new Set(K.words.map(w => w.w));
-function hl(src) {
-  const re = /("(?:[^"\\]|\\.)*"?)|(`[\w.:\/]*)|(\b\d[\d.]*(?:[eE]-?\d+)?[a-zA-Z]?\b|0[NnWw]\b)|('|\/:|\\:|':|\/|\\)|([+\-*%!&|<>=~,^#_$?@.:])|(\b[A-Za-z][\w.]*\b)|(\s\/.*$)/gm;
-  return src.replace(re, (m, s, y, n, a, v, w, c) => {
-    if (s) return '<span class="t-s">' + escH(s) + "</span>";
-    if (y) return '<span class="t-y">' + escH(y) + "</span>";
-    if (n) return '<span class="t-n">' + n + "</span>";
-    if (a) return '<span class="t-a">' + escH(a) + "</span>";
-    if (v) return '<span class="t-v">' + escH(v) + "</span>";
-    if (w) return WORDS.has(w) ? '<span class="t-w">' + w + "</span>" : w;
-    if (c) return '<span class="t-c">' + escH(c) + "</span>";
-    return escH(m);
-  });
+const TOK = /("(?:[^"\\]|\\.)*"?)|(`[\w.:\/]*)|(\b\d[\d.]*(?:[eE]-?\d+)?[a-zA-Z]?\b|0[NnWw]\b)|('|\/:|\\:|':|\/|\\)|([+\-*%!&|<>=~,^#_$?@.:])|(\b[A-Za-z][\w.]*\b)|((?:^|\s)\/.*$)/g;
+const CLS = [null, "t-s", "t-y", "t-n", "t-a", "t-v", "t-w", "t-c"];
+function classes(line) {                       // one class name (or "") per character of a line
+  const c = new Array(line.length).fill(""); let m; TOK.lastIndex = 0;
+  while ((m = TOK.exec(line))) {
+    if (!m[0].length) { TOK.lastIndex++; continue; }
+    let k = 1; while (k < 8 && m[k] === undefined) k++;
+    let cls = CLS[k]; if (k === 6 && !WORDS.has(m[0])) cls = "";
+    for (let i = m.index; i < m.index + m[0].length; i++) c[i] = cls;
+  }
+  return c;
+}
+function hl(src) { return src.split("\n").map(l => spans(l, classes(l), 0, l.length, -1, -1)).join("\n"); }
+function spans(line, cls, a, b, s0, s1) {      // characters a..b of a line, coloured, selection s0..s1 marked
+  let h = "", run = "", rc = null;
+  const flush = () => { if (run) h += rc ? '<span class="' + rc + '">' + escH(run) + "</span>" : escH(run); run = ""; };
+  for (let i = a; i < b; i++) {
+    const c = (cls[i] || "") + (i >= s0 && i < s1 ? " sel" : "");
+    if (c !== rc) { flush(); rc = c; }
+    run += line[i];
+  }
+  flush(); return h;
+}
+
+// ---------------------------------------------------------------- the editor
+const E = { text: "", a: 0, b: 0 };           // a = anchor, b = caret; the selection is between them
+let rows = [], cw = 10, lh = 22, cols = 30, undoS = [], redoS = [], saveT = 0;
+const selLo = () => Math.min(E.a, E.b), selHi = () => Math.max(E.a, E.b);
+function measure() {
+  const probe = document.createElement("span"); probe.className = "probe"; probe.textContent = "MMMMMMMMMM"; edText.append(probe);
+  cw = probe.getBoundingClientRect().width / 10 || 10; lh = parseFloat(getComputedStyle(edText).lineHeight) || 22; probe.remove();
+  cols = Math.max(8, Math.floor((edText.clientWidth - 2) / cw));
+}
+function layout() {                            // logical lines cut into rows of `cols` characters
+  rows = []; let s = 0;
+  for (const line of E.text.split("\n")) {
+    if (!line.length) rows.push({ s, e: s, ls: s });
+    for (let i = 0; i < line.length; i += cols) rows.push({ s: s + i, e: s + Math.min(i + cols, line.length), ls: s });
+    s += line.length + 1;
+  }
+}
+function caretRow(p) {                         // the row a position is drawn on (a wrap point goes to the next row)
+  for (let r = 0; r < rows.length; r++) {
+    const R = rows[r], N = rows[r + 1];
+    if (p >= R.s && p <= R.e && !(p === R.e && N && N.s === R.e && N.ls === R.ls)) return r;
+  }
+  return rows.length - 1;
+}
+function draw() {
+  layout();
+  const lo = selLo(), hi = selHi(), lines = E.text.split("\n"); let h = "", li = 0, lstart = 0, lcls = null;
+  for (const R of rows) {
+    while (R.ls > lstart) { lstart += lines[li].length + 1; li++; lcls = null; }
+    if (!lcls) lcls = classes(lines[li]);
+    const inner = spans(lines[li], lcls, R.s - lstart, R.e - lstart, lo - lstart, hi - lstart);
+    const nlSel = lo < hi && R.e === R.ls + lines[li].length && R.e >= lo && R.e < hi;   // a selected line end
+    h += '<div class="r">' + (inner || "") + (nlSel ? '<span class="sel"> </span>' : "") + "</div>";
+  }
+  edText.innerHTML = h;
+  phEl.classList.toggle("hidden", E.text.length > 0);
+  const r = caretRow(E.b), col = E.b - rows[r].s;
+  caretEl.style.transform = "translate(" + (col * cw) + "px," + (r * lh) + "px)";
+  caretEl.classList.remove("blink"); void caretEl.offsetWidth; caretEl.classList.add("blink");
+  const top = r * lh, vis = edBox.clientHeight - 8;                     // keep the caret in view
+  if (top < edBox.scrollTop) edBox.scrollTop = top; else if (top + lh > edBox.scrollTop + vis) edBox.scrollTop = top + lh - vis;
+  clearTimeout(saveT); saveT = setTimeout(save, 250);
+}
+function snap() { const t = { text: E.text, a: E.a, b: E.b }, top = undoS[undoS.length - 1];
+  if (!top || top.text !== t.text) { undoS.push(t); if (undoS.length > 300) undoS.shift(); redoS = []; } }
+function undo() { if (!undoS.length) return toast("nothing to undo"); redoS.push({ text: E.text, a: E.a, b: E.b }); Object.assign(E, undoS.pop()); draw(); }
+function redo() { if (!redoS.length) return toast("nothing to redo"); undoS.push({ text: E.text, a: E.a, b: E.b }); Object.assign(E, redoS.pop()); draw(); }
+function replaceSel(t) { const lo = selLo(), hi = selHi(); E.text = E.text.slice(0, lo) + t + E.text.slice(hi); E.a = E.b = lo + t.length; }
+function insert(t) { snap(); replaceSel(t); draw(); }
+function insertPair(o, c) { snap(); const mid = E.text.slice(selLo(), selHi()); replaceSel(o + mid + c); E.a = E.b = E.b - c.length; draw(); }
+function back() { snap(); if (E.a === E.b && E.b > 0) E.a = E.b - 1; replaceSel(""); draw(); }
+function setText(t) { snap(); E.text = t; E.a = E.b = t.length; draw(); }
+function move(d) { const p = E.a !== E.b ? (d < 0 ? selLo() : selHi()) : Math.max(0, Math.min(E.text.length, E.b + d)); E.a = E.b = p; draw(); }
+function moveLine(d) { layout(); const r = caretRow(E.b), col = E.b - rows[r].s, t = r + d;
+  if (t < 0) E.b = 0; else if (t >= rows.length) E.b = E.text.length; else E.b = rows[t].s + Math.min(col, rows[t].e - rows[t].s);
+  E.a = E.b; draw(); }
+function selectAll() { if (selLo() === 0 && selHi() === E.text.length && E.text.length) { E.a = E.b = E.text.length; } else { E.a = 0; E.b = E.text.length; } draw(); }
+function selectLine() { const v = E.text, a = v.lastIndexOf("\n", E.b - 1) + 1, b = v.indexOf("\n", E.b); E.a = a; E.b = b < 0 ? v.length : b; draw(); }
+function selectWord(p) { const v = E.text, w = c => /[\w.`]/.test(c || "");
+  let a = p, b = p; if (!w(v[p]) && w(v[p - 1])) a = b = p - 1; if (!w(v[a])) { E.a = p; E.b = Math.min(v.length, p + 1); return draw(); }
+  while (a > 0 && w(v[a - 1])) a--; while (b < v.length && w(v[b])) b++; E.a = a; E.b = b; draw(); }
+const selected = () => E.text.slice(selLo(), selHi());
+function posAt(x, y) {                         // the text position under a point in the editor
+  const rect = edText.getBoundingClientRect(); layout();
+  const r = Math.max(0, Math.min(rows.length - 1, Math.floor((y - rect.top) / lh)));
+  const col = Math.max(0, Math.round((x - rect.left) / cw));
+  return rows[r].s + Math.min(col, rows[r].e - rows[r].s);
+}
+// taps in the editor: place the caret, a quick second tap selects the word; a drag scrolls it
+let edDown = null, lastTap = 0;
+edBox.addEventListener("pointerdown", e => { edDown = { x: e.clientX, y: e.clientY, st: edBox.scrollTop }; });
+edBox.addEventListener("pointerup", e => {
+  if (!edDown) return; const moved = Math.abs(e.clientY - edDown.y) > 8 || Math.abs(e.clientX - edDown.x) > 8 || edBox.scrollTop !== edDown.st;
+  edDown = null; if (moved) return;
+  const p = posAt(e.clientX, e.clientY), now = Date.now();
+  if (now - lastTap < 330) { selectWord(p); lastTap = 0; } else { E.a = E.b = p; draw(); lastTap = now; }
+});
+edBox.addEventListener("contextmenu", e => e.preventDefault());
+
+// ---------------------------------------------------------------- clipboard
+async function copyText(t, quiet) {
+  if (!t) return toast("nothing to copy");
+  let ok = false;
+  try { await navigator.clipboard.writeText(t); ok = true; } catch (e) {}
+  if (!ok) { const ta = document.createElement("textarea"); ta.value = t; ta.setAttribute("readonly", ""); ta.className = "offscreen";
+    document.body.append(ta); ta.select(); try { ok = document.execCommand("copy"); } catch (e) {} ta.remove(); window.scrollTo(0, 0); }
+  if (!quiet) toast(ok ? "copied" : "copy failed");
+}
+function copySel() { copyText(selected() || E.text); }
+function cutSel() { const t = selected(); if (!t) return toast("select something first (all · line · double tap)"); copyText(t, true); back(); toast("cut"); }
+async function paste() {
+  try { const t = await navigator.clipboard.readText(); if (t) return insert(t.replace(/\r\n?/g, "\n")); toast("the clipboard is empty"); }
+  catch (e) { nativeEdit("Paste here (hold and choose Paste), then Done"); }
+}
+// the whole text in a native box, for the iPhone keyboard, native selection and paste
+function nativeEdit(note) {
+  openSheet('<h3>Edit with the iPhone keyboard</h3><div class="note">' + escH(note || "type, select, paste as usual, then Done") +
+    '</div><textarea id="nat" class="nat" autocapitalize="off" autocorrect="off" spellcheck="false"></textarea>' +
+    '<button class="item ok" data-a="ok">Done</button>', { ok: () => { setText($("#nat").value.replace(/\r\n?/g, "\n")); window.scrollTo(0, 0); } }, true);
+  const n = $("#nat"); n.value = E.text; setTimeout(() => { n.focus(); n.setSelectionRange(E.b, E.b); }, 50);
 }
 
 // ---------------------------------------------------------------- the log
 let hist = store.get("hist", []), hpos = -1;
-function addCell(src, out, tag) {
+function addCell(src, parts, tag) {
+  if (typeof parts === "string") parts = [{ ok: parts }];
   const c = document.createElement("div"); c.className = "cell";
   const i = document.createElement("div"); i.className = "in"; i.innerHTML = (tag ? '<span class="tag">' + escH(tag) + "</span>" : "") + hl(src);
-  const o = document.createElement("div");
-  o.className = "out" + (/^\s*(error\[|')/.test(stripAnsi(out)) ? " err" : "");
-  o.innerHTML = ansiToHtml(out.replace(/\n+$/, ""));
-  c._src = src; c._out = stripAnsi(out).replace(/\n+$/, "");
+  const o = document.createElement("div"); o.className = "out";
+  o.innerHTML = parts.map(p => p.ok !== undefined
+    ? '<div class="ok">' + ansiToHtml(p.ok.replace(/\n+$/, "")) + "</div>"
+    : '<div class="er"><span class="en">\'' + escH(p.err.name) + "</span>" + (p.err.why ? '<span class="ew">' + escH(p.err.why) + "</span>" : "") +
+      p.err.frames.map(f => '<span class="ec">' + hl(f[0]) + "\n" + '<span class="ek">' + escH(f[1]) + "</span></span>").join("") + "</div>").join("");
+  c._src = src;
+  c._out = parts.map(p => p.ok !== undefined ? stripAnsi(p.ok).replace(/\n+$/, "") : p.err.text).join("\n");
   c.append(i, o); log.append(c); log.scrollTop = log.scrollHeight;
 }
-// tap an input: edit it again; tap an output: copy it; hold either: the cell's menu
 let cellT = 0, cellLong = false, cellY = 0;
 log.addEventListener("pointerdown", e => { const c = e.target.closest(".cell"); if (!c || !c._src) return;
   cellLong = false; cellY = e.clientY; cellT = setTimeout(() => { cellLong = true; cellMenu(c); }, 480); });
@@ -87,8 +218,7 @@ log.addEventListener("pointerdown", e => { const c = e.target.closest(".cell"); 
   if (t === "pointermove" && Math.abs(e.clientY - cellY) < 8) return; clearTimeout(cellT); }));
 log.addEventListener("click", e => {
   const c = e.target.closest(".cell"); if (!c || !c._src || cellLong) return;
-  if (e.target.closest(".out")) { copyText(c._out); return; }
-  if (e.target.closest(".in")) putText(c._src);
+  if (e.target.closest(".out")) copyText(c._out); else if (e.target.closest(".in")) putText(c._src);
 });
 log.addEventListener("contextmenu", e => { if (e.target.closest(".cell")) e.preventDefault(); });
 function cellMenu(c) {
@@ -97,6 +227,7 @@ function cellMenu(c) {
     cin: () => copyText(c._src), cout: () => copyText(c._out), edit: () => putText(c._src),
     rerun: () => runText(c._src), del: () => c.remove() });
 }
+function putText(t) { if (cur) insert(t); else setText(t); }      // a file is never replaced
 function runText(src) {
   if (!vm) { addCell(src, "the engine is still starting"); return; }
   addCell(src, evalSrc(src));
@@ -104,97 +235,41 @@ function runText(src) {
   if (/^[A-Za-z][\w.]*\s*:[^:]/.test(src) || /^\\l /.test(src)) { const d = store.get("defs", []); d.push(src); store.set("defs", d.slice(-100)); }
 }
 function run() {
-  const src = ed.value.trim(); if (!src) return;
-  if (cur) { if (!vm) return toast("the engine is still starting"); addCell(src, evalSrc(src), cur); return; }   // a file stays
-  runText(src); snap(); ed.value = ""; grow();
+  const src = E.text.trim(); if (!src) return;
+  if (cur) { if (!vm) return toast("the engine is still starting"); addCell(src, evalSrc(src), cur); return; }
+  runText(src); snap(); E.text = ""; E.a = E.b = 0; draw();
 }
-// run the line under the caret, or the selection
 function runLine() {
-  const v = ed.value, s = ed.selectionStart, e = ed.selectionEnd;
-  let t = s !== e ? v.slice(s, e) : v.slice(v.lastIndexOf("\n", s - 1) + 1, (v.indexOf("\n", s) + 1 || v.length + 1) - 1);
-  t = t.trim(); if (t) runText(t);
+  const v = E.text, s = selLo(), e = selHi();
+  const t = (s !== e ? v.slice(s, e) : v.slice(v.lastIndexOf("\n", s - 1) + 1, (v.indexOf("\n", s) + 1 || v.length + 1) - 1)).trim();
+  if (t) runText(t);
 }
-function recall(dir) {
-  if (cur) return toast("the history is for the scratch line");
-  if (!hist.length) return;
-  hpos = hpos < 0 ? (dir < 0 ? hist.length - 1 : -1) : hpos + dir;
-  if (hpos >= hist.length || hpos < 0 && dir > 0) { hpos = -1; setEditor(""); } else { hpos = Math.max(0, hpos); setEditor(hist[hpos]); }
-  placeEnd();
+function recall(dir) {                       // ↑ the command before, ↓ the one after; past the newest, an empty line
+  if (!hist.length) return toast("no commands yet");
+  if (cur) { if (dir < 0) insert(hist[hist.length - 1]); return; }   // in a file: the last command at the caret
+  if (hpos < 0) { if (dir > 0) return; hpos = hist.length - 1; } else hpos = Math.max(0, hpos + dir);
+  if (hpos >= hist.length) { hpos = -1; return setText(""); }
+  setText(hist[hpos]);
 }
-
-// ---------------------------------------------------------------- editor, undo, clipboard
-let undoS = [], redoS = [];
-function snap() { const t = { v: ed.value, s: ed.selectionStart, e: ed.selectionEnd }, top = undoS[undoS.length - 1];
-  if (!top || top.v !== t.v) { undoS.push(t); if (undoS.length > 300) undoS.shift(); redoS = []; } }
-function restore(t) { ed.value = t.v; ed.setSelectionRange(t.s, t.e); grow(); }
-function undo() { if (!undoS.length) return toast("nothing to undo"); redoS.push({ v: ed.value, s: ed.selectionStart, e: ed.selectionEnd }); restore(undoS.pop()); }
-function redo() { if (!redoS.length) return toast("nothing to redo"); undoS.push({ v: ed.value, s: ed.selectionStart, e: ed.selectionEnd }); restore(redoS.pop()); }
-let saveT = 0;
-function grow() {
-  ed.style.height = "auto"; ed.style.height = Math.min(ed.scrollHeight, window.innerHeight * 0.34) + "px";
-  clearTimeout(saveT); saveT = setTimeout(save, 250);
-}
-function focusEd() { if (document.activeElement !== ed) ed.focus({ preventScroll: true }); }
-function placeEnd() { focusEd(); const n = ed.value.length; ed.setSelectionRange(n, n); }
-function setEditor(v) { snap(); ed.value = v; grow(); }
-function putText(t) { if (cur) insert(t); else { setEditor(t); placeEnd(); } }   // a file is never replaced
-function insert(t) { snap(); focusEd(); const s = ed.selectionStart, e = ed.selectionEnd; ed.setRangeText(t, s, e, "end"); grow(); }
-function insertPair(o, c) { snap(); focusEd(); const s = ed.selectionStart, e = ed.selectionEnd, mid = ed.value.slice(s, e);
-  ed.setRangeText(o + mid + c, s, e, "end"); const p = s + o.length + mid.length; ed.setSelectionRange(p, p); grow(); }
-function back() { snap(); focusEd(); const s = ed.selectionStart, e = ed.selectionEnd;
-  if (s !== e) ed.setRangeText("", s, e, "end"); else if (s > 0) ed.setRangeText("", s - 1, s, "end"); grow(); }
-function move(d) { focusEd(); const p = Math.max(0, Math.min(ed.value.length, ed.selectionStart + d)); ed.setSelectionRange(p, p); }
-function moveLine(d) {                                  // up/down a line, keeping the column
-  focusEd(); const v = ed.value, p = ed.selectionStart, ls = v.lastIndexOf("\n", p - 1) + 1, col = p - ls;
-  if (d < 0) { if (!ls) return ed.setSelectionRange(0, 0); const ps = v.lastIndexOf("\n", ls - 2) + 1; const q = Math.min(ps + col, ls - 1); ed.setSelectionRange(q, q); }
-  else { const le = v.indexOf("\n", p); if (le < 0) return ed.setSelectionRange(v.length, v.length);
-    const ne = v.indexOf("\n", le + 1), q = Math.min(le + 1 + col, ne < 0 ? v.length : ne); ed.setSelectionRange(q, q); }
-}
-function selectAll() { focusEd(); if (ed.selectionStart === 0 && ed.selectionEnd === ed.value.length) { const n = ed.value.length; ed.setSelectionRange(n, n); }
-  else ed.setSelectionRange(0, ed.value.length); }
-function selectLine() { focusEd(); const v = ed.value, p = ed.selectionStart, a = v.lastIndexOf("\n", p - 1) + 1, b = v.indexOf("\n", p);
-  ed.setSelectionRange(a, b < 0 ? v.length : b); }
-async function copyText(t, quiet) {
-  if (!t) return toast("nothing to copy");
-  try { await navigator.clipboard.writeText(t); }
-  catch (e) { const ta = document.createElement("textarea"); ta.value = t; ta.setAttribute("readonly", ""); ta.style.position = "fixed"; ta.style.opacity = 0;
-    document.body.append(ta); ta.select(); try { document.execCommand("copy"); } catch (e2) {} ta.remove(); focusEd(); }
-  if (!quiet) toast("copied");
-}
-const selected = () => ed.value.slice(ed.selectionStart, ed.selectionEnd);
-function copySel() { copyText(selected() || ed.value); }
-function cutSel() { const t = selected(); if (!t) return toast("select something to cut"); copyText(t, true); back(); toast("cut"); }
-async function paste() {
-  try { const t = await navigator.clipboard.readText(); if (t) insert(t.replace(/\r\n?/g, "\n")); else toast("the clipboard is empty"); }
-  catch (e) { toast("hold the editor and choose Paste"); }
-}
-ed.addEventListener("beforeinput", snap);                // typing with the system keyboard, native paste
-ed.addEventListener("input", grow);
-ed.addEventListener("keydown", e => {
-  if (e.key === "Enter" && (e.shiftKey || e.metaKey || e.ctrlKey)) { e.preventDefault(); run(); }
-  if ((e.metaKey || e.ctrlKey) && e.key === "z") { e.preventDefault(); e.shiftKey ? redo() : undo(); }
-});
 
 // ---------------------------------------------------------------- files
 let cur = store.get("cur", null);
 const files = () => store.get("files", {});
-function save() {
-  if (cur) { const f = files(); f[cur] = ed.value; store.set("files", f); } else store.set("draft", ed.value);
-}
+function save() { if (cur) { const f = files(); f[cur] = E.text; store.set("files", f); } else store.set("draft", E.text); }
 function openFile(name) {
   save(); cur = name; store.set("cur", cur); undoS = []; redoS = [];
-  ed.value = name ? (files()[name] || "") : store.get("draft", ""); grow(); showName(); placeEnd();
+  E.text = name ? (files()[name] || "") : store.get("draft", ""); E.a = E.b = E.text.length; edBox.scrollTop = 0; draw(); showName();
 }
-function showName() { $("#fileBtn").innerHTML = cur ? escH(cur) : "scratch"; $("#fileBtn").classList.toggle("on", !!cur); }
+function showName() { $("#fileBtn").textContent = cur || "scratch"; $("#fileBtn").classList.toggle("on", !!cur); }
 function uniqueName(n) { n = n.trim().replace(/[\/\\\s]+/g, "_") || "untitled"; if (!/\.[kq]$|\.txt$/.test(n)) n += ".k";
   const f = files(); if (f[n] === undefined) return n; const b = n.replace(/(\.\w+)$/, ""), x = n.slice(b.length);
   for (let i = 2; ; i++) if (f[b + "-" + i + x] === undefined) return b + "-" + i + x; }
 function newFile(name, text) { const n = uniqueName(name); const f = files(); f[n] = text || ""; store.set("files", f); openFile(n); toast(n + " created"); }
 function nameSheet(title, initial, done) {
   openSheet("<h3>" + escH(title) + '</h3><input id="nm" class="nm" value="' + escH(initial) + '" autocapitalize="off" autocorrect="off" spellcheck="false">' +
-    '<button class="item ok" data-a="ok">OK</button>', { ok: () => done($("#nm").value) }, true);
-  setTimeout(() => { const i = $("#nm"); i.focus(); i.setSelectionRange(0, i.value.replace(/\.\w+$/, "").length); }, 60);
-  $("#nm").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); const v = $("#nm").value; closeSheet(); done(v); } });
+    '<button class="item ok" data-a="ok">OK</button>', { ok: () => { done($("#nm").value); window.scrollTo(0, 0); } }, true);
+  const i = $("#nm"); setTimeout(() => { i.focus(); i.setSelectionRange(0, i.value.replace(/\.\w+$/, "").length); }, 60);
+  i.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); const v = i.value; closeSheet(); done(v); window.scrollTo(0, 0); } });
 }
 function filesSheet() {
   const f = files(), names = Object.keys(f).sort();
@@ -218,7 +293,7 @@ function fileSheet(n) {
     load: () => insert("\\l " + n + "\n"), copy: () => copyText(files()[n] || ""),
     rename: () => nameSheet("Rename " + n, n, v => { const f = files(), m = v.trim() === n ? n : uniqueName(v);
       if (m === n) return; f[m] = f[n]; delete f[n]; store.set("files", f); if (cur === n) { cur = m; store.set("cur", m); showName(); } toast("renamed to " + m); }),
-    dup: () => { const f = files(); newFile(n, f[n]); },
+    dup: () => newFile(n, files()[n]),
     share: () => shareFile(n, files()[n] || ""),
     del: () => { const f = files(); delete f[n]; store.set("files", f); if (cur === n) { cur = null; store.set("cur", null); openFile(null); } toast(n + " deleted"); },
   });
@@ -266,6 +341,7 @@ function showCard(g) {
       '</span><span class="r">' + escH(e[1] || "(no output)") + "</span></button>").join("") + "</div>" : "") +
     '<div class="tip">tap an example to put it in the editor</div>';
   card.querySelectorAll(".ex button").forEach(b => b.onclick = () => { insert(i.ex[+b.dataset.n][0]); hideCard(); });
+  card.style.bottom = (window.innerHeight - $("#tools").getBoundingClientRect().top + 6) + "px";
   card.classList.remove("hidden");
 }
 function hideCard() { card.classList.add("hidden"); }
@@ -304,31 +380,31 @@ function bottom() {
 }
 function render() {
   kb.innerHTML = "";
-  const rows = page === "fn" ? pageFn() : page === "abc" ? pageAbc() : null;
+  const body = document.createElement("div"); body.className = "kbody";
   if (page === "q") {
     const w = document.createElement("div"); w.className = "words"; const seen = new Set();
     for (const x of K.words) { if (seen.has(x.w)) continue; seen.add(x.w); w.append(mk(key(x.w, "word", () => insert(x.w + " ")))); }
-    kb.append(w);
-  }
-  for (const r of rows || []) { const d = document.createElement("div"); d.className = "row"; r.forEach(k => d.append(mk(k))); kb.append(d); }
-  const d = document.createElement("div"); d.className = "row"; bottom().forEach(k => d.append(mk(k))); kb.append(d);
+    body.append(w);
+  } else for (const r of page === "fn" ? pageFn() : pageAbc()) { const d = document.createElement("div"); d.className = "row"; r.forEach(k => d.append(mk(k))); body.append(d); }
+  const d = document.createElement("div"); d.className = "row"; bottom().forEach(k => d.append(mk(k)));
+  kb.append(body, d);
 }
-function mk(k) { const b = document.createElement("button"); b.className = "k " + k.cls; b.type = "button";
+function mk(k) { const b = document.createElement("button"); b.className = "k " + k.cls; b.type = "button"; b.tabIndex = -1;
   b.innerHTML = '<span class="g">' + escH(k.g) + "</span>"; b._k = k; return b; }
 
-// the edit bar: undo redo, line up/down, select, copy cut paste, run the line
-const TOOLS = [["↶", "undo", undo], ["↷", "redo", redo], ["▲", "line up", () => moveLine(-1)], ["▼", "line down", () => moveLine(1)],
-  ["all", "select all", selectAll], ["line", "select line", selectLine], ["copy", "copy", copySel], ["cut", "cut", cutSel],
-  ["paste", "paste", paste], ["⏵ line", "run this line", runLine], ["↑", "history", () => recall(-1)]];
+// the edit bar
+const TOOLS = [["↑", () => recall(-1)], ["↓", () => recall(1)], ["undo", undo], ["copy", copySel], ["paste", paste], ["⌨", () => nativeEdit()]];
 const tools = $("#tools");
-TOOLS.forEach(([g, label, act]) => { const b = document.createElement("button"); b.className = "tb" + (g.length > 2 ? " w" : "");
-  b.type = "button"; b.textContent = g; b.title = label; b._k = { g, act }; tools.append(b); });
+TOOLS.forEach(([g, act]) => { const b = document.createElement("button"); b.className = "tb"; b.type = "button"; b.tabIndex = -1;
+  b.textContent = g; b._k = { g, act }; tools.append(b); });
 
-// pointer handling: act on release, hold for the card, hold ⌫ and the arrows to repeat
-let held = null, timer = 0, rep = 0, longDone = false;
-const repeating = new Set(["⌫", "◀", "▶", "▲", "▼", "↶", "↷"]);
+// presses: act on release on the key that was pressed, hold for the card, hold ⌫ and the moves to repeat.
+// The key is taken from the touch point itself (elementFromPoint), not from event retargeting.
+let held = null, timer = 0, rep = 0, longDone = false, downX = 0;
+const repeating = new Set(["⌫", "◀", "▶", "undo"]);
 function down(e) {
-  const b = e.target.closest(".k, .tb"); if (!b) return;
+  const b = (document.elementFromPoint(e.clientX, e.clientY) || e.target).closest(".k, .tb"); if (!b) return;
+  if (b.classList.contains("tb") && tools.scrollWidth > tools.clientWidth) { downX = e.clientX; }
   e.preventDefault(); held = b; longDone = false; b.classList.add("down");
   const k = b._k;
   if (repeating.has(k.g)) { k.act(); timer = setTimeout(() => { rep = setInterval(k.act, 60); }, 380); longDone = true; return; }
@@ -337,7 +413,8 @@ function down(e) {
 function release(e) {
   if (!held) return; const b = held, k = b._k; held = null; b.classList.remove("down");
   clearTimeout(timer); clearInterval(rep);
-  if (e.type === "pointercancel") return;
+  if (e.type === "pointercancel" || (b.classList.contains("tb") && Math.abs(e.clientX - downX) > 12 && downX)) { downX = 0; return; }
+  downX = 0;
   if (!longDone) { hideCard(); k.act(); if (info.has(k.g)) showHint(k.g); }
 }
 for (const el of [kb, tools]) {
@@ -346,10 +423,25 @@ for (const el of [kb, tools]) {
 }
 document.addEventListener("pointerdown", e => { if (!card.contains(e.target) && !kb.contains(e.target)) hideCard(); });
 
-// the system keyboard on demand (for long names), back to ours from the menu or on Run
-let sysKb = false;
-function setSysKb(on) { sysKb = on; ed.setAttribute("inputmode", on ? "text" : "none"); kb.classList.toggle("hidden", on);
-  hint.classList.toggle("hidden", on); ed.blur(); setTimeout(() => ed.focus(), 30); }
+// a hardware keyboard (iPad, Mac): type straight into the editor
+document.addEventListener("keydown", e => {
+  if (!sheet.classList.contains("hidden")) return;
+  const c = e.metaKey || e.ctrlKey;
+  if (c && e.key === "z") { e.preventDefault(); return e.shiftKey ? redo() : undo(); }
+  if (c && e.key === "a") { e.preventDefault(); return selectAll(); }
+  if (c && e.key === "c") { e.preventDefault(); return copySel(); }
+  if (c && e.key === "x") { e.preventDefault(); return cutSel(); }
+  if (c) return;                                         // Cmd+V arrives as a paste event
+  if (e.key === "Enter") { e.preventDefault(); return e.shiftKey ? run() : insert("\n"); }
+  if (e.key === "Backspace") { e.preventDefault(); return back(); }
+  if (e.key === "ArrowLeft") { e.preventDefault(); return move(-1); }
+  if (e.key === "ArrowRight") { e.preventDefault(); return move(1); }
+  if (e.key === "ArrowUp") { e.preventDefault(); return moveLine(-1); }
+  if (e.key === "ArrowDown") { e.preventDefault(); return moveLine(1); }
+  if (e.key.length === 1) { e.preventDefault(); insert(e.key); }
+});
+document.addEventListener("paste", e => { if (!sheet.classList.contains("hidden")) return;
+  const t = (e.clipboardData || window.clipboardData).getData("text"); if (t) { e.preventDefault(); insert(t.replace(/\r\n?/g, "\n")); } });
 
 // ---------------------------------------------------------------- sheets and the menu
 const item = (a, label, sub) => '<button class="item" data-a="' + escH(a) + '">' + label + (sub ? "<small>" + sub + "</small>" : "") + "</button>";
@@ -357,7 +449,7 @@ function openSheet(html, acts, keepOpen) {
   sheet.innerHTML = '<div class="panel">' + html + "</div>"; sheet.classList.remove("hidden");
   sheet.querySelectorAll(".item").forEach(b => b.onclick = () => { const f = acts && acts[b.dataset.a]; if (!keepOpen || b.dataset.a === "ok") closeSheet(); f && f(); });
 }
-function closeSheet() { sheet.classList.add("hidden"); }
+function closeSheet() { sheet.classList.add("hidden"); if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); window.scrollTo(0, 0); }
 sheet.addEventListener("click", e => { if (e.target === sheet) closeSheet(); });
 const SNIPS = [
   ["A table and a query", "t:([]sym:`a`b`a`c`b;px:10 20 30 40 50.0;sz:1 2 3 4 5)\nselect vwap:sz wavg px by sym from t"],
@@ -369,56 +461,46 @@ const SNIPS = [
   ["Dicts and grouping", "d:`a`b`c!1 2 3\nd`b\n=`x`y`x`z`y"],
 ];
 let fs = store.get("fs", 17);
-function setFont(d) { fs = Math.max(12, Math.min(24, fs + d)); store.set("fs", fs); document.documentElement.style.setProperty("--fs", fs + "px"); grow(); }
+function setFont(d) { fs = Math.max(12, Math.min(24, fs + d)); store.set("fs", fs); document.documentElement.style.setProperty("--fs", fs + "px"); measure(); draw(); }
 $("#menuBtn").onclick = () => openSheet("<h3>Amber</h3>" +
   item("files", "Files", cur ? "editing " + escH(cur) : "the scratch line") +
   item("snip", "Snippets", "tables, trains, Newton, dates, ticks") +
+  item("native", "Edit with the iPhone keyboard", "for long names, native selection and paste") +
   item("copylog", "Copy the whole log") +
-  item("sys", sysKb ? "Use the Amber keyboard" : "Use the system keyboard", "for typing long names") +
   '<div class="two">' + item("small", "A−") + item("big", "A+") + "</div>" +
   item("clear", "Clear the log") +
   item("reset", "Reset the session", "a fresh interpreter, saved definitions forgotten") +
   item("about", "About"), {
-  files: filesSheet,
+  files: filesSheet, native: () => nativeEdit(),
   snip: () => openSheet("<h3>Snippets</h3>" + SNIPS.map((x, n) => item("s" + n, x[0], escH(x[1].split("\n")[0]))).join(""),
     Object.fromEntries(SNIPS.map((x, n) => ["s" + n, () => putText(x[1])]))),
   copylog: () => copyText([...log.querySelectorAll(".cell")].filter(c => c._src).map(c => c._src + "\n" + c._out).join("\n\n")),
-  sys: () => setSysKb(!sysKb), small: () => setFont(-1), big: () => setFont(1),
+  small: () => setFont(-1), big: () => setFont(1),
   clear: () => { log.innerHTML = ""; },
   reset: () => { store.set("defs", []); log.innerHTML = '<div class="cell sys">a fresh session</div>'; boot(); },
   about: () => openSheet('<h3>About</h3><div class="about">Amber ' + (vm ? vm.version() : "") +
     ", the q-flavoured array language, compiled to WebAssembly and running entirely on this device. Nothing is sent anywhere." +
     "<br><br><b>Keys.</b> The first page holds every primitive and adverb: tap to type, hold for what it does and examples, each" +
-    " answered by this engine. <b>q</b> has the words, <b>abc</b> the letters. The bar above has undo, line moves, selection," +
-    " copy, cut, paste and run-this-line." +
+    " answered by this engine. <b>q</b> has the words, <b>abc</b> the letters. The bar above: ↑ ↓ step through your earlier" +
+    " commands, then undo, copy (the selection, or everything), paste, and ⌨ for the iPhone keyboard." +
+    "<br><br><b>Editor.</b> Tap to place the caret, double tap to select a word." +
     "<br><br><b>Log.</b> Tap an input to edit it again, tap an output to copy it, hold either for more." +
     "<br><br><b>Files.</b> Scripts are saved on this phone as you type; <code>\\l name.k</code> runs one from another. Import" +
     " and share them through the Files app." +
     "<br><br>Amber is free software under the GNU AGPLv3. Source: github.com/BonucciAndrea/amber</div>"),
 });
 $("#fileBtn").onclick = filesSheet;
-$("#runBtn").onclick = () => { if (sysKb) setSysKb(false); run(); };
+$("#runBtn").onclick = run;
 
-// ---------------------------------------------------------------- keep the page still (iOS)
-// Focusing the editor makes iOS scroll the page to show it, even though the page is position:fixed;
-// the keys are then drawn in one place and hit in another. Undo any such scroll at once, and size the
-// app to the visual viewport so drawing and touching always agree.
-const app = $("#app");
-function unscroll() { if (window.scrollX || window.scrollY) window.scrollTo(0, 0);
-  if (document.documentElement.scrollTop) document.documentElement.scrollTop = 0; if (document.body.scrollTop) document.body.scrollTop = 0; }
-function fit() { const v = window.visualViewport; app.style.height = (v ? v.height : window.innerHeight) + "px";
-  app.style.transform = v && v.offsetTop ? "translateY(" + v.offsetTop + "px)" : ""; unscroll(); }
-window.addEventListener("scroll", unscroll, { passive: true });
-if (window.visualViewport) { visualViewport.addEventListener("resize", fit); visualViewport.addEventListener("scroll", fit); }
-window.addEventListener("orientationchange", () => setTimeout(fit, 300));
-ed.addEventListener("focus", () => { unscroll(); setTimeout(fit, 0); setTimeout(fit, 300); });
-document.addEventListener("touchmove", e => { if (!e.target.closest("#log, #tools, .words, #sheet .panel, #card, #ed")) e.preventDefault(); }, { passive: false });
-fit();
-
-// ---------------------------------------------------------------- start
+// ---------------------------------------------------------------- start: nothing ever scrolls the page
+window.addEventListener("scroll", () => { if (window.scrollY || window.scrollX) window.scrollTo(0, 0); }, { passive: true });
+document.addEventListener("touchmove", e => { if (!e.target.closest("#log, #tools, .words, #sheet .panel, #card, #ed, .out")) e.preventDefault(); }, { passive: false });
+document.addEventListener("dblclick", e => e.preventDefault(), { passive: false });
+window.addEventListener("resize", () => { measure(); draw(); });
 document.documentElement.style.setProperty("--fs", fs + "px");
 if (cur && files()[cur] === undefined) { cur = null; store.set("cur", null); }
-ed.value = cur ? files()[cur] : store.get("draft", ""); grow(); showName(); render(); boot();
+E.text = cur ? files()[cur] : store.get("draft", ""); E.a = E.b = E.text.length;
+render(); showName(); measure(); draw(); boot();
 window.addEventListener("pagehide", save);
 document.addEventListener("visibilitychange", () => { if (document.hidden) save(); });
 if ("serviceWorker" in navigator && location.protocol !== "file:") navigator.serviceWorker.register("sw.js").catch(() => {});
