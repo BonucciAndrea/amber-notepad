@@ -1,0 +1,88 @@
+// genkeys.js - build keys.js, the phone keyboard's data, from the definitions below. Every example
+// is run through amber.wasm (node tools/genkeys.js from phone/) and its real result is stored,
+// so a key's card never shows a result the engine does not give.
+//   meanings: the REPL's own reference card (repl.k \h, \' and \q), dyadic first as there.
+const path = require("path"), fs = require("fs");
+const HERE = path.resolve(__dirname, "..");
+require(path.join(HERE, "rt.js"));
+
+// [glyph, dyadic "x f y", monadic "f x", [examples]]
+const PRIMS = [
+  ["+", "add", "flip", ["2+3", "+(1 2;3 4)"]],
+  ["-", "subtract", "negate", ["5-2", "-3 4"]],
+  ["*", "multiply", "first", ["2*3 4", "*7 8 9"]],
+  ["%", "divide", "sqrt", ["7%2", "%16"]],
+  ["!", "mod · dict", "enum · key", ["3!10", "`a`b!1 2", "!5"]],
+  ["&", "min · and", "where", ["3&5", "&0 1 0 1", "&2 1"]],
+  ["|", "max · or", "reverse", ["3|5", "|1 2 3"]],
+  ["<", "less", "ascend (grade up)", ["2<3", "<3 1 2"]],
+  [">", "more", "descend (grade down)", ["2>3", ">3 1 2"]],
+  ["=", "equal", "group", ["1 2 3=1 0 3", "=`a`b`a"]],
+  ["~", "match", "not", ["1 2~1 2", "~0 1 2"]],
+  [",", "concat", "enlist", ["1 2,3", ",5"]],
+  ["^", "without", "null", ["1 2 3 2^2", "^1 0N 3"]],
+  ["#", "reshape · take", "length", ["2 3#!6", "3#`a", "#\"abc\""]],
+  ["_", "drop · cut", "floor", ["2_!5", "_2.7"]],
+  ["$", "cast", "string", ["`i$2.7", "$12"]],
+  ["?", "find · random", "unique", ["10 20 30?20", "?1 2 1 3"]],
+  ["@", "apply · index", "type", ["10 20 30@1", "@1 2"]],
+  [".", "apply (n args)", "eval", ["{x+y}.(1;2)", ".\"2+2\""]],
+  [":", "assign", "identity / return", ["a:5", "a"]],
+];
+const ADVERBS = [
+  ["'", "each · bin", ["#'(\"abc\";3 4 5 6)", "2 3#'\"ab\""]],
+  ["/", "over: fold · join · decode", ["+/1 2 3", "10+/1 2 3", "24 60 60/1 2 3"]],
+  ["\\", "scan · split · encode", ["+\\1 2 3", "24 60 60\\3723"]],
+  ["':", "each-prior · window", ["-':12 13 11 17", "3':\"abcde\""]],
+  ["/:", "each-right", ["1 2*/:3 4"]],
+  ["\\:", "each-left", ["1 2*\\:3 4"]],
+];
+const PUNCT = [
+  ["`", "symbol", ["`abc", "`a`b`c"]],
+  ["\"", "string", ["\"hello\""]],
+  [";", "separator", ["(1;`a;\"b\")"]],
+  ["(", "group / list", ["(1+2)*3"]], [")", "", []],
+  ["[", "index / args", ["10 20 30[1]"]], ["]", "", []],
+  ["{", "lambda: x y z", ["{x*x}4", "{x+y}[3;4]"]], ["}", "", []],
+  ["x", "1st argument", []], ["y", "2nd argument", []], ["z", "3rd argument", []],
+];
+// the q page: words with a short meaning and an example
+const QW = [
+  ["select", "qSQL query", "select sum px by sym from t"], ["from", "", ""], ["where", "filter rows · indices of 1s", "where 0 1 1"], ["by", "", ""],
+  ["update", "add / replace columns", "update v:px*2 from t"], ["exec", "a column as a list", "exec px from t"],
+  ["delete", "drop rows or columns", "delete from t where px>2"],
+  ["sum", "sum", "sum 1 2 3"], ["avg", "mean", "avg 1 2 3 4"], ["max", "maximum", "max 3 1 4"], ["min", "minimum", "min 3 1 4"],
+  ["count", "length", "count 1 2 3"], ["first", "first item", "first 7 8"], ["last", "last item", "last 7 8"],
+  ["til", "0 .. n-1", "til 5"], ["asc", "sort up", "asc 3 1 2"], ["desc", "sort down", "desc 3 1 2"],
+  ["distinct", "unique items", "distinct 1 1 2"], ["reverse", "reverse", "reverse 1 2 3"],
+  ["sums", "running sum", "sums 1 2 3"], ["deltas", "differences", "deltas 1 4 9"], ["med", "median", "med 1 5 3"],
+  ["dev", "std deviation", "dev 1 2 3 4.0"], ["wavg", "weighted mean", "1 2 wavg 3 4"], ["xbar", "bucket", "5 xbar 3 7 12"],
+  ["in", "membership", "2 in 1 2 3"], ["within", "in a range", "5 within 3 7"], ["like", "glob match", "\"abc\" like \"a*\""],
+  ["each", "apply to each", "count each (1 2;3)"], ["string", "to text", "string 12"], ["type", "type", "type 1.0"],
+  ["aj", "as-of join", "aj[`sym`time;t1;t2]"], ["lj", "left join", "t lj kt"], ["ij", "inner join", "t ij kt"],
+  ["wj", "window join", ""], ["xasc", "sort a table", "`px xasc t"], ["xkey", "key a table", "`sym xkey t"],
+  ["cols", "column names", "cols t"], ["meta", "column types", "meta t"], ["show", "print", "show t"],
+];
+const SETUP = ["t:([]sym:`a`b`a`c;px:1 2 3 4.0;sz:10 20 30 40)", "kt:([sym:`a`b`c]w:1 2 3)",
+               "t1:([]sym:`a`a;time:1 5)", "t2:([]sym:`a`a`a;time:0 3 4;bid:9 8 7)"];
+
+(async () => {
+  const vm = await new AmberVM().boot(fs.readFileSync(path.join(HERE, "amber.wasm")));
+  for (const s of SETUP) vm.eval(s);
+  const run = e => stripAnsi(vm.eval(e)).replace(/\n+$/, "").replace(/\[\d+ rows x \d+ cols\]$/, "").trimEnd();
+  const ex = list => list.map(e => [e, run(e)]);
+  const data = {
+    prims: PRIMS.map(([g, d, m, es]) => ({ g, dy: d, mo: m, ex: ex(es) })),
+    adverbs: ADVERBS.map(([g, d, es]) => ({ g, mo: d, ex: ex(es) })),
+    punct: PUNCT.map(([g, d, es]) => ({ g, mo: d, ex: ex(es) })),
+    words: QW.map(([w, d, e]) => ({ w, d, ex: e ? [[e, run(e)]] : [] })),
+    setup: SETUP,
+    version: vm.version(),
+  };
+  fs.writeFileSync(path.join(HERE, "keys.js"),
+    "/* keys.js - generated by tools/genkeys.js from the engine's own answers; do not edit */\n" +
+    "window.AMBER_KEYS = " + JSON.stringify(data, null, 1) + ";\n");
+  for (const p of data.prims.concat(data.adverbs)) for (const [e, r] of p.ex) console.log(p.g.padEnd(3), e.padEnd(26), "->", r.split("\n").join(" ⏎ "));
+  for (const w of data.words) for (const [e, r] of w.ex) console.log(w.w.padEnd(9), e.padEnd(28), "->", r.split("\n")[0]);
+  console.log("version:", data.version);
+})();

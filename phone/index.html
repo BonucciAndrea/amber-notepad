@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+<title>Amber</title>
+<meta name="description" content="Amber, the q-flavoured array language, in your pocket: the real interpreter, offline, with a keyboard of every primitive.">
+<meta name="theme-color" content="#0b0b0f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Amber">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<div id="app">
+  <header id="top">
+    <div class="brand">
+      <svg class="logo" viewBox="0 0 32 32" aria-hidden="true">
+        <defs><linearGradient id="lg" x1="0.15" y1="0.95" x2="0.85" y2="0.05">
+          <stop offset="0" stop-color="#FFD98A"/><stop offset=".45" stop-color="#FFB020"/><stop offset="1" stop-color="#FF7A18"/></linearGradient></defs>
+        <path d="M16 2.6 28.4 24 27.2 26.1H22.3L16 14.2 9.7 26.1H4.8L3.6 24Z" fill="url(#lg)"/>
+        <path d="M16 18.4 20.1 26.1H11.9Z" fill="#FF7A18" fill-opacity=".62"/>
+      </svg>
+      <span class="name">Amber</span><span id="ver" class="ver">…</span>
+    </div>
+    <div class="actions">
+      <button id="menuBtn" class="icon" aria-label="Menu">⋯</button>
+      <button id="runBtn" class="run" aria-label="Run">Run ▶</button>
+    </div>
+  </header>
+
+  <main id="log" aria-live="polite">
+    <div id="boot" class="cell sys">starting the engine…</div>
+  </main>
+
+  <section id="edit">
+    <textarea id="ed" rows="2" inputmode="none" autocomplete="off" autocorrect="off" autocapitalize="off"
+      spellcheck="false" enterkeyhint="go" placeholder="type with the keys below, tap Run"></textarea>
+  </section>
+
+  <div id="hint"><span class="hg"></span><span class="ht">tap a key · hold it for its examples</span></div>
+
+  <nav id="kb" aria-label="Amber keyboard"></nav>
+</div>
+
+<div id="card" class="hidden" role="dialog"></div>
+<div id="sheet" class="hidden" role="dialog"></div>
+
+<script src="rt.js"></script>
+<script src="keys.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

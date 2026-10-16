@@ -107,7 +107,10 @@ class AmberVM {
         dv.setInt32(s, (t/1000)|0, true); dv.setInt32(u, (t%1000)*1000, true); },
       js_exit: () => {},
       js_eval: () => 0,
-      sin: Math.sin, cos: Math.cos, log: Math.log, exp: Math.exp
+      sin: Math.sin, cos: Math.cos, log: Math.log, exp: Math.exp,
+      // the 2.9 engine also imports these (the line editor's two hooks are never used in the browser)
+      tan: Math.tan, asin: Math.asin, acos: Math.acos, atan: Math.atan, fmod: (a, b) => a % b,
+      isatty: () => 0, am_ln_sb_capture: () => {}, am_ln_exec_ms: () => 0
     };
     const { instance } = await WebAssembly.instantiate(bin, { env });
     this.ex = instance.exports; mem = this.ex.memory; heap = this.ex.__heap_base.value;

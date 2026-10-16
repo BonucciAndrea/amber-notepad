@@ -20,7 +20,8 @@ echo "genfs -> $O/fs.h"
 python3 "$HERE/genfs.py" "$AMBER_SRC" > "$O/fs.h"
 
 CFLAGS="--target=wasm32 -Dwasm -O2 -ffreestanding -fno-builtin -w
-        -nostdinc -isystem $RES/include -I$AMBER_SRC/src/wsys -I$AMBER_SRC/src -I$AMBER_SRC"
+        -nostdinc -isystem $RES/include -I$HERE/wasm_inc -I$AMBER_SRC/src/wsys -I$AMBER_SRC/src -I$AMBER_SRC
+        -include $HERE/wasm_extra.h -Wno-error=implicit-function-declaration"
 objs=""
 for f in "$AMBER_SRC"/src/*.c; do
   b="$(basename "$f" .c)"
@@ -28,6 +29,9 @@ for f in "$AMBER_SRC"/src/*.c; do
   "$CLANG" $CFLAGS -c "$f" -o "$O/$b.o"
   objs="$objs $O/$b.o"
 done
+# libc pieces src/wsys lacks (qsort, since 2.9): see wasm_extra.h
+"$CLANG" $CFLAGS -c "$HERE/wasm_extra.c" -o "$O/wasm_extra.o"
+objs="$objs $O/wasm_extra.o"
 
 echo "wasm-ld -> amber.wasm"
 "$WLD" --no-entry --allow-undefined --export-dynamic \
